@@ -1,0 +1,51 @@
+from fastapi import APIRouter, Depends
+from sqlalchemy import select
+from sqlalchemy.orm import Session
+
+from .. import mappers, models, schemas
+from ..core.database import get_db
+from ..core.deps import get_current_user
+from ..directory import find_user_by_identifier
+
+router = APIRouter(prefix="/api/v1/users", tags=["users"])
+
+
+@router.get("/me", response_model=schemas.UserOut)
+def get_me(user: models.User = Depends(get_current_user)):
+    return mappers.user_out(user)
+
+
+@router.patch("/me", response_model=schemas.UserOut)
+def update_me(
+    body: schemas.UpdateMeIn,
+    user: models.User = Depends(get_current_user),
+    db: Session = Depends(get_db),
+):
+    if body.name is not None and body.name.strip():
+        user.display_name = body.name.strip()
+    if body.about is not None:
+        user.about = body.about
+    if body.avatar_url is not None:
+        user.avatar_url = body.avatar_url or None
+    db.commit()
+    db.refresh(user)
+    return mappers.user_out(user)
+
+
+@router.get("", response_model=list[schemas.UserOut])
+def list_users(user: models.User = Depends(get_current_user), db: Session = Depends(get_db)):
+    rows = db.execute(select(models.User).where(models.User.id != user.id)).scalars().all()
+    return [mappers.user_out(u) for u in rows]
+
+
+@router.get("/lookup", response_model=schemas.DirectoryUserOut | None)
+def lookup_user(
+    identifier: str,
+    user: models.User = Depends(get_current_user),
+    db: Session = Depends(get_db),
+):
+    found = find_user_by_identifier(db, identifier)
+    if not found or found.id == user.id:
+        return None
+    is_contact = db.get(models.Contact, (user.id, found.id)) is not None
+    return mappers.directory_user_out(found, is_contact)
