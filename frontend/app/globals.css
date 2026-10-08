@@ -1,0 +1,239 @@
+@import "tailwindcss";
+
+/* ---------------------------------------------------------------------- *
+ * Design tokens — the single source of truth for colour, radius, shadow
+ * and easing. Tune these against reference screenshots; components never
+ * hard-code hex values, they only reference tokens or Tailwind utilities
+ * generated from them below.
+ * ---------------------------------------------------------------------- */
+
+:root {
+  --accent: #2c6bed;
+  --accent-hover: #1f5ad8;
+
+  --bg-app: #ffffff;
+  --bg-sidebar: #f6f6f6;
+  --bg-elevated: #ffffff;
+  --bg-row-hover: #ededed;
+  --bg-row-selected: #dedede;
+
+  --bubble-in: #e9e9e9;
+  --bubble-out: var(--accent);
+
+  --text-primary: #1b1b1b;
+  --text-secondary: #5e5e5e;
+  --text-on-accent: #ffffff;
+
+  --divider: #dedede;
+  --input-bg: #ededed;
+
+  --danger: #d92d20;
+  --online: #34c759;
+
+  --chat-pattern-opacity: 0.035;
+  --shadow-menu: 0 6px 24px rgba(0, 0, 0, 0.12);
+
+  /* Signal-style muted/desaturated avatar palette (12 fixed tones) */
+  --avatar-1: #b2515f; /* crimson */
+  --avatar-2: #bd6a4c; /* vermilion */
+  --avatar-3: #ab8a52; /* burlap */
+  --avatar-4: #4f8a5b; /* forest */
+  --avatar-5: #3f9a82; /* wintergreen */
+  --avatar-6: #3f8f94; /* teal */
+  --avatar-7: #4a7bc1; /* blue */
+  --avatar-8: #5f6fc7; /* indigo */
+  --avatar-9: #8169c4; /* violet */
+  --avatar-10: #a15a9e; /* plum */
+  --avatar-11: #8d7866; /* taupe */
+  --avatar-12: #6b7a8f; /* steel */
+}
+
+[data-theme="dark"] {
+  --accent: #2c6bed;
+  --accent-hover: #4a82f0;
+
+  --bg-app: #121212;
+  --bg-sidebar: #1b1b1b;
+  --bg-elevated: #2e2e2e;
+  --bg-row-hover: #262626;
+  --bg-row-selected: #3b3b3b;
+
+  --bubble-in: #3b3b3b;
+
+  --text-primary: #e9e9e9;
+  --text-secondary: #b9b9b9;
+
+  --divider: #2e2e2e;
+  --input-bg: #2e2e2e;
+
+  --danger: #f25b4d;
+  --online: #30d158;
+
+  --chat-pattern-opacity: 0.05;
+  --shadow-menu: 0 6px 24px rgba(0, 0, 0, 0.5);
+}
+
+/* Fallback for no-JS / first paint before the inline script resolves
+   "system" — kept in sync with the dark block above. */
+@media (prefers-color-scheme: dark) {
+  :root:not([data-theme="light"]) {
+    --bg-app: #121212;
+    --bg-sidebar: #1b1b1b;
+    --bg-elevated: #2e2e2e;
+    --bg-row-hover: #262626;
+    --bg-row-selected: #3b3b3b;
+    --bubble-in: #3b3b3b;
+    --text-primary: #e9e9e9;
+    --text-secondary: #b9b9b9;
+    --divider: #2e2e2e;
+    --input-bg: #2e2e2e;
+    --danger: #f25b4d;
+    --online: #30d158;
+    --chat-pattern-opacity: 0.05;
+    --shadow-menu: 0 6px 24px rgba(0, 0, 0, 0.5);
+  }
+}
+
+/* ---------------------------------------------------------------------- *
+ * Expose tokens to Tailwind utilities (bg-accent, text-secondary,
+ * border-divider, rounded-bubble, shadow-menu, ease-signal, ...).
+ * ---------------------------------------------------------------------- */
+
+@theme inline {
+  --color-accent: var(--accent);
+  --color-accent-hover: var(--accent-hover);
+
+  --color-app: var(--bg-app);
+  --color-sidebar: var(--bg-sidebar);
+  --color-elevated: var(--bg-elevated);
+  --color-row-hover: var(--bg-row-hover);
+  --color-row-selected: var(--bg-row-selected);
+
+  --color-bubble-in: var(--bubble-in);
+  --color-bubble-out: var(--bubble-out);
+
+  --color-primary: var(--text-primary);
+  --color-secondary: var(--text-secondary);
+  --color-on-accent: var(--text-on-accent);
+
+  --color-divider: var(--divider);
+  --color-input: var(--input-bg);
+
+  --color-danger: var(--danger);
+  --color-online: var(--online);
+
+  --color-avatar-1: var(--avatar-1);
+  --color-avatar-2: var(--avatar-2);
+  --color-avatar-3: var(--avatar-3);
+  --color-avatar-4: var(--avatar-4);
+  --color-avatar-5: var(--avatar-5);
+  --color-avatar-6: var(--avatar-6);
+  --color-avatar-7: var(--avatar-7);
+  --color-avatar-8: var(--avatar-8);
+  --color-avatar-9: var(--avatar-9);
+  --color-avatar-10: var(--avatar-10);
+  --color-avatar-11: var(--avatar-11);
+  --color-avatar-12: var(--avatar-12);
+
+  --radius-sm: 6px;
+  --radius-md: 10px;
+  --radius-lg: 14px;
+  --radius-bubble: 18px;
+
+  --shadow-menu: var(--shadow-menu);
+
+  --ease-signal: cubic-bezier(0.2, 0, 0, 1);
+
+  --font-sans: var(--font-inter), ui-sans-serif, system-ui, -apple-system,
+    "Segoe UI", sans-serif;
+}
+
+/* ---------------------------------------------------------------------- *
+ * Base + motion keyframes used by Dialog/Menu (Radix data-state driven).
+ * ---------------------------------------------------------------------- */
+
+html,
+body {
+  height: 100%;
+}
+
+body {
+  font-family: var(--font-sans);
+  font-size: 14px;
+  line-height: 20px;
+  -webkit-font-smoothing: antialiased;
+  font-feature-settings: "cv11", "ss01";
+}
+
+::selection {
+  background: color-mix(in srgb, var(--accent) 30%, transparent);
+}
+
+* {
+  scrollbar-width: thin;
+  scrollbar-color: var(--divider) transparent;
+}
+
+*::-webkit-scrollbar {
+  width: 8px;
+  height: 8px;
+}
+
+*::-webkit-scrollbar-thumb {
+  background: var(--divider);
+  border-radius: 9999px;
+}
+
+*::-webkit-scrollbar-track {
+  background: transparent;
+}
+
+@keyframes overlay-in {
+  from {
+    opacity: 0;
+  }
+  to {
+    opacity: 1;
+  }
+}
+
+@keyframes overlay-out {
+  from {
+    opacity: 1;
+  }
+  to {
+    opacity: 0;
+  }
+}
+
+@keyframes content-in {
+  from {
+    opacity: 0;
+    transform: scale(0.96);
+  }
+  to {
+    opacity: 1;
+    transform: scale(1);
+  }
+}
+
+@keyframes content-out {
+  from {
+    opacity: 1;
+    transform: scale(1);
+  }
+  to {
+    opacity: 0;
+    transform: scale(0.96);
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  *,
+  *::before,
+  *::after {
+    animation-duration: 0.001ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 0.001ms !important;
+  }
+}
