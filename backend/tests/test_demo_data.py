@@ -1,5 +1,5 @@
 from app import models
-from app.seeding import seed_demo_data_for_user
+from app.seeding import remove_demo_data_for_user, seed_demo_data_for_user
 
 from .conftest import auth_headers, make_user
 
@@ -49,3 +49,37 @@ def test_load_demo_data_is_idempotent(client, db):
 def test_seed_users_themselves_are_excluded(db):
     created = seed_demo_data_for_user(db, "aarav")
     assert created is False
+
+
+def test_remove_demo_data_undoes_everything_load_added(client, db):
+    carol = make_user(db, "CarolD3")
+    client.post("/api/v1/users/me/demo-data", headers=auth_headers(carol.id))
+
+    r = client.delete("/api/v1/users/me/demo-data", headers=auth_headers(carol.id))
+    assert r.status_code == 200
+    assert r.json()["removed"] is True
+
+    db.expire_all()
+    dm_rows = (
+        db.query(models.Conversation)
+        .filter(models.Conversation.type == "direct", models.Conversation.dm_key.like(f"%{carol.id}%"))
+        .all()
+    )
+    assert dm_rows == []
+    group_rows = db.query(models.Conversation).filter_by(type="group", created_by=carol.id).all()
+    assert group_rows == []
+    for cid in ("aarav", "priya", "rohan"):
+        assert db.get(models.Contact, (carol.id, cid)) is None
+
+
+def test_remove_demo_data_is_a_safe_noop_when_nothing_was_loaded(client, db):
+    dave = make_user(db, "DaveD4")
+
+    r = client.delete("/api/v1/users/me/demo-data", headers=auth_headers(dave.id))
+    assert r.status_code == 200
+    assert r.json()["removed"] is False
+
+
+def test_remove_demo_data_excludes_seed_users_themselves(db):
+    removed = remove_demo_data_for_user(db, "aarav")
+    assert removed is False

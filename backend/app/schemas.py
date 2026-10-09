@@ -60,6 +60,10 @@ class DemoDataOut(CamelModel):
     created: bool
 
 
+class RemoveDemoDataOut(CamelModel):
+    removed: bool
+
+
 class UpdateMeIn(CamelModel):
     name: str | None = None
     about: str | None = None

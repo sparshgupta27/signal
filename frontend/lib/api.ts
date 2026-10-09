@@ -162,6 +162,10 @@ export function loadDemoData(): Promise<{ created: boolean }> {
   return request("/api/v1/users/me/demo-data", { method: "POST" });
 }
 
+export function removeDemoData(): Promise<{ removed: boolean }> {
+  return request("/api/v1/users/me/demo-data", { method: "DELETE" });
+}
+
 // --- conversations ---------------------------------------------------------------
 
 export function sortConversations(list: Conversation[]): Conversation[] {

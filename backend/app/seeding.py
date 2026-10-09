@@ -26,6 +26,7 @@ SEED_USERS = [
 
 CONTACTS_OF_DEMO = ["aarav", "priya", "rohan", "ananya", "kabir", "dev"]
 
+
 def _id(prefix: str) -> str:
     # A real UUID, not a process-local sequential counter: the old counter
     # reset to 1 on every restart, which was only safe as long as run_seed
@@ -317,6 +318,44 @@ def seed_demo_data_for_user(db: Session, user_id: str) -> bool:
 
     db.commit()
     return True
+
+
+def remove_demo_data_for_user(db: Session, user_id: str) -> bool:
+    """Undoes exactly what seed_demo_data_for_user added — the two DMs,
+    the "Weekend Trip" group it created, and the three contacts. Deleting
+    each Conversation row cascades to its messages/receipts/participants
+    at the database level (ON DELETE CASCADE + PRAGMA foreign_keys=ON),
+    so there's nothing else to clean up manually. Returns False if there
+    was nothing to remove."""
+    if user_id in _SEED_USER_IDS:
+        return False
+
+    removed_any = False
+
+    for other_id in ("aarav", "priya"):
+        key = ":".join(sorted([user_id, other_id]))
+        convo = db.query(models.Conversation).filter_by(dm_key=key).first()
+        if convo:
+            db.delete(convo)
+            removed_any = True
+
+    group = (
+        db.query(models.Conversation)
+        .filter_by(type="group", created_by=user_id, name="Weekend Trip")
+        .first()
+    )
+    if group:
+        db.delete(group)
+        removed_any = True
+
+    for cid in ("aarav", "priya", "rohan"):
+        contact = db.get(models.Contact, (user_id, cid))
+        if contact:
+            db.delete(contact)
+            removed_any = True
+
+    db.commit()
+    return removed_any
 
 
 def run_seed(db: Session) -> None:

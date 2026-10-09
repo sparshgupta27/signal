@@ -8,12 +8,14 @@ import { IconButton } from "@/components/ui/IconButton";
 import { Menu, MenuContent, MenuItem, MenuSeparator, MenuTrigger } from "@/components/ui/Menu";
 import { NewChatDialog } from "@/components/dialogs/NewChatDialog";
 import { AddContactDialog } from "@/components/dialogs/AddContactDialog";
+import { ConfirmDialog } from "@/components/dialogs/ConfirmDialog";
 import { conversationsQueryKey, useConversations } from "@/hooks/useConversations";
 import { useUiStore } from "@/store/uiStore";
 import * as api from "@/lib/api";
 
 export function ChatListHeader() {
   const [addContactOpen, setAddContactOpen] = useState(false);
+  const [removeDemoOpen, setRemoveDemoOpen] = useState(false);
   const composeOpen = useUiStore((s) => s.newChatOpen);
   const composeMode = useUiStore((s) => s.newChatMode);
   const openNewChat = useUiStore((s) => s.openNewChat);
@@ -46,6 +48,20 @@ export function ChatListHeader() {
     }
   };
 
+  const removeDemoData = async () => {
+    try {
+      const { removed } = await api.removeDemoData();
+      if (removed) {
+        await queryClient.invalidateQueries({ queryKey: conversationsQueryKey });
+        toast("Demo chats and group removed");
+      } else {
+        toast("No demo data to remove");
+      }
+    } catch {
+      toast("Couldn't remove demo data");
+    }
+  };
+
   return (
     <div className="flex h-14 shrink-0 items-center justify-between px-4">
       <h1 className="text-[20px] font-semibold text-primary">Chats</h1>
@@ -65,6 +81,9 @@ export function ChatListHeader() {
             <MenuItem onSelect={markAllRead}>Mark all read</MenuItem>
             <MenuSeparator />
             <MenuItem onSelect={loadDemoData}>Load demo data</MenuItem>
+            <MenuItem danger onSelect={() => setRemoveDemoOpen(true)}>
+              Remove demo data
+            </MenuItem>
           </MenuContent>
         </Menu>
       </div>
@@ -79,6 +98,14 @@ export function ChatListHeader() {
         }}
       />
       <AddContactDialog open={addContactOpen} onOpenChange={setAddContactOpen} />
+      <ConfirmDialog
+        open={removeDemoOpen}
+        onOpenChange={setRemoveDemoOpen}
+        title="Remove demo data?"
+        description="Deletes the demo DMs and the Weekend Trip group this account loaded, including any messages sent in them. Your other chats aren't affected."
+        confirmLabel="Remove"
+        onConfirm={removeDemoData}
+      />
     </div>
   );
 }
