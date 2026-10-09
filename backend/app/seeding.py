@@ -11,6 +11,7 @@ from datetime import datetime, timedelta, timezone
 from sqlalchemy.orm import Session
 
 from . import models
+from .core.security import new_id
 
 SEED_USERS = [
     {"id": "demo", "phone": "+91 90000 00001", "username": "demo.01", "name": "Demo User", "about": "Available"},
@@ -25,13 +26,16 @@ SEED_USERS = [
 
 CONTACTS_OF_DEMO = ["aarav", "priya", "rohan", "ananya", "kabir", "dev"]
 
-_seq = 0
-
-
 def _id(prefix: str) -> str:
-    global _seq
-    _seq += 1
-    return f"seed-{prefix}{_seq}"
+    # A real UUID, not a process-local sequential counter: the old counter
+    # reset to 1 on every restart, which was only safe as long as run_seed
+    # ran at most once ever. The moment a *second* seeding pass runs in a
+    # later process (seed_missing_demo_dms, backfilling live data run_seed
+    # itself skipped because the database already had users) its counter
+    # also restarted from 1 and collided head-on with ids a prior run had
+    # already committed — e.g. "seed-dm1" existing twice. A UUID can't
+    # collide with anything, this run or a previous one.
+    return new_id(f"seed-{prefix}")
 
 
 class _Clock:
