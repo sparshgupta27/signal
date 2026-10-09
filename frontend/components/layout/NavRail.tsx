@@ -14,6 +14,7 @@ import { CURRENT_USER_ID, getUser } from "@/lib/mock/data";
 import * as auth from "@/lib/mock/auth";
 import { useConversations } from "@/hooks/useConversations";
 import { useMyProfile } from "@/hooks/useMyProfile";
+import { useUiStore } from "@/store/uiStore";
 
 const NAV_ITEMS = [
   { href: "/", label: "Chats", icon: MessageCircle, match: (p: string) => p === "/" || p.startsWith("/chat") },
@@ -29,6 +30,7 @@ export function NavRail() {
   const { conversations } = useConversations();
   const totalUnread = conversations.reduce((sum, c) => sum + (c.isMuted ? 0 : c.unreadCount), 0);
   const [logoutOpen, setLogoutOpen] = useState(false);
+  const openShortcuts = useUiStore((s) => s.openShortcuts);
 
   return (
     <nav className="flex w-[68px] shrink-0 flex-col items-center justify-between border-r border-divider bg-sidebar py-3">
@@ -91,6 +93,7 @@ export function NavRail() {
             <MenuSeparator />
             <MenuItem onSelect={() => router.push("/settings/profile")}>Edit profile</MenuItem>
             <MenuItem onSelect={() => router.push("/settings")}>Settings</MenuItem>
+            <MenuItem onSelect={openShortcuts}>Keyboard shortcuts</MenuItem>
             <MenuSeparator />
             <MenuItem danger onSelect={() => setLogoutOpen(true)}>
               Log out

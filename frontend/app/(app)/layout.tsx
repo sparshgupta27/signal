@@ -5,8 +5,11 @@ import { NavRail } from "@/components/layout/NavRail";
 import { ListPane } from "@/components/layout/ListPane";
 import { MobileTabBar } from "@/components/layout/MobileTabBar";
 import { RequireAuth } from "@/components/auth/RequireAuth";
+import { ShortcutsDialog } from "@/components/dialogs/ShortcutsDialog";
 import { useSocketBridge } from "@/hooks/useSocketBridge";
+import { useGlobalHotkeys } from "@/hooks/useGlobalHotkeys";
 import { useIsMobile, useIsTablet } from "@/hooks/useMediaQuery";
+import { useUiStore } from "@/store/uiStore";
 
 export default function AppShellLayout({ children }: { children: React.ReactNode }) {
   return (
@@ -18,9 +21,12 @@ export default function AppShellLayout({ children }: { children: React.ReactNode
 
 function AppShell({ children }: { children: React.ReactNode }) {
   useSocketBridge();
+  useGlobalHotkeys();
   const pathname = usePathname();
   const isMobile = useIsMobile();
   const isTablet = useIsTablet();
+  const shortcutsOpen = useUiStore((s) => s.shortcutsOpen);
+  const closeShortcuts = useUiStore((s) => s.closeShortcuts);
 
   const showChatList = pathname === "/" || pathname.startsWith("/chat");
   const inChatThread = pathname.startsWith("/chat/") && pathname !== "/chat/new";
@@ -39,6 +45,7 @@ function AppShell({ children }: { children: React.ReactNode }) {
           {pathname === "/" ? <ListPane fullWidth /> : children}
         </main>
         {showTabBar && <MobileTabBar />}
+        <ShortcutsDialog open={shortcutsOpen} onOpenChange={(open) => !open && closeShortcuts()} />
       </div>
     );
   }
@@ -48,6 +55,7 @@ function AppShell({ children }: { children: React.ReactNode }) {
       <NavRail />
       {showChatList && <ListPane compact={isTablet} />}
       <main className="flex min-w-0 flex-1">{children}</main>
+      <ShortcutsDialog open={shortcutsOpen} onOpenChange={(open) => !open && closeShortcuts()} />
     </div>
   );
 }

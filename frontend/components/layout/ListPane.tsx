@@ -8,6 +8,7 @@ import { SearchField } from "@/components/chat-list/SearchField";
 import { SearchResults } from "@/components/chat-list/SearchResults";
 import { useConversations } from "@/hooks/useConversations";
 import { useChatStore } from "@/store/chatStore";
+import { useUiStore } from "@/store/uiStore";
 import * as api from "@/lib/mock/api";
 import type { SearchResults as SearchResultsData } from "@/lib/mock/api";
 import { cn } from "@/lib/cn";
@@ -64,6 +65,16 @@ export function ListPane({ fullWidth = false, compact = false }: ListPaneProps) 
   const { conversations, isLoading } = useConversations();
   const activeConversationId = useChatStore((s) => s.activeConversationId);
   const resizingRef = useRef(false);
+  const searchInputRef = useRef<HTMLInputElement>(null);
+  const searchFocusToken = useUiStore((s) => s.searchFocusToken);
+
+  // Reacting to an external "focus the search field" signal (Mod+K) — an
+  // imperative DOM call, not state sync, so this is exactly what an effect
+  // is for. Also fires on mount with whatever token is already set, which
+  // is what makes Mod+K work even when ListPane wasn't mounted yet.
+  useEffect(() => {
+    if (searchFocusToken > 0) searchInputRef.current?.focus();
+  }, [searchFocusToken]);
 
   // Clearing results is a direct consequence of the user's edit, so it
   // happens here rather than as a derived effect watching `query`.
@@ -125,7 +136,7 @@ export function ListPane({ fullWidth = false, compact = false }: ListPaneProps) 
       <ChatListHeader />
 
       <div className="px-3 pb-2">
-        <SearchField value={query} onChange={setQuery} />
+        <SearchField ref={searchInputRef} value={query} onChange={setQuery} />
       </div>
 
       {!isSearching && (
