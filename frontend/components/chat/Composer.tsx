@@ -4,6 +4,7 @@ import { useEffect, useRef, useState } from "react";
 import { toast } from "sonner";
 import { File as FileIcon, Loader2, Mic, Paperclip, Send, Smile, X } from "lucide-react";
 import type { Message, MessageAttachment } from "@/types";
+import { CameraCaptureDialog } from "@/components/dialogs/CameraCaptureDialog";
 import { IconButton } from "@/components/ui/IconButton";
 import { Menu, MenuContent, MenuItem, MenuTrigger } from "@/components/ui/Menu";
 import { senderDisplayName } from "@/lib/conversationDisplay";
@@ -35,6 +36,7 @@ export function Composer({ conversationId, canSend, replyTo, onCancelReply }: Co
   const setDraft = useUiStore((s) => s.setDraft);
   const [pendingAttachment, setPendingAttachment] = useState<UploadedAttachment | null>(null);
   const [uploading, setUploading] = useState(false);
+  const [cameraOpen, setCameraOpen] = useState(false);
   // Resetting a half-picked attachment when the chat changes, via React's
   // "adjust state while rendering" pattern — not an effect, since a half-
   // picked photo for one conversation has no business in the next one and
@@ -95,6 +97,20 @@ export function Composer({ conversationId, canSend, replyTo, onCancelReply }: Co
     textareaRef.current?.focus();
   };
 
+  const uploadImageFile = async (file: File) => {
+    setUploading(true);
+    try {
+      const { url, width, height } = await fileToChatImage(file);
+      const resized = await dataUrlToFile(url, file.name, "image/jpeg");
+      const uploaded = await api.uploadAttachment(resized, { width, height });
+      setPendingAttachment(uploaded);
+    } catch {
+      toast("Couldn't upload that image");
+    } finally {
+      setUploading(false);
+    }
+  };
+
   const handleImagePick = async (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
     e.target.value = "";
@@ -107,17 +123,11 @@ export function Composer({ conversationId, canSend, replyTo, onCancelReply }: Co
       toast("Image is too large (max 8MB)");
       return;
     }
-    setUploading(true);
-    try {
-      const { url, width, height } = await fileToChatImage(file);
-      const resized = await dataUrlToFile(url, file.name, "image/jpeg");
-      const uploaded = await api.uploadAttachment(resized, { width, height });
-      setPendingAttachment(uploaded);
-    } catch {
-      toast("Couldn't upload that image");
-    } finally {
-      setUploading(false);
-    }
+    await uploadImageFile(file);
+  };
+
+  const handleCameraCapture = (file: File) => {
+    uploadImageFile(file);
   };
 
   const handleFilePick = async (e: React.ChangeEvent<HTMLInputElement>) => {
@@ -214,9 +224,12 @@ export function Composer({ conversationId, canSend, replyTo, onCancelReply }: Co
           </MenuTrigger>
           <MenuContent align="start" side="top">
             <MenuItem onSelect={() => imageInputRef.current?.click()}>Photo</MenuItem>
+            <MenuItem onSelect={() => setCameraOpen(true)}>Camera</MenuItem>
             <MenuItem onSelect={() => fileInputRef.current?.click()}>File</MenuItem>
           </MenuContent>
         </Menu>
+
+        <CameraCaptureDialog open={cameraOpen} onOpenChange={setCameraOpen} onCapture={handleCameraCapture} />
 
         <div className="flex min-w-0 flex-1 items-end gap-1 rounded-lg bg-input px-3 py-2">
           <textarea
