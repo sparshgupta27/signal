@@ -1,7 +1,7 @@
 "use client";
 
 import Link from "next/link";
-import type { SearchResults as SearchResultsData } from "@/lib/mock/api";
+import type { SearchResults as SearchResultsData } from "@/lib/api";
 import { Avatar } from "@/components/ui/Avatar";
 import {
   getConversationAvatarId,

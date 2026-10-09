@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useRef } from "react";
-import { mockSocket } from "@/lib/mock/socket";
+import { wsClient } from "@/lib/ws";
 
 /** Throttles typing.start to once per 3s while typing; auto-stops after 2s idle. */
 export function useTyping(conversationId: string) {
@@ -10,7 +10,7 @@ export function useTyping(conversationId: string) {
     if (stopTimer.current) clearTimeout(stopTimer.current);
     stopTimer.current = null;
     if (lastSentAt.current !== 0) {
-      mockSocket.setTyping(conversationId, false);
+      wsClient.setTyping(conversationId, false);
       lastSentAt.current = 0;
     }
   }, [conversationId]);
@@ -18,7 +18,7 @@ export function useTyping(conversationId: string) {
   const notifyTyping = useCallback(() => {
     const now = Date.now();
     if (now - lastSentAt.current > 3000) {
-      mockSocket.setTyping(conversationId, true);
+      wsClient.setTyping(conversationId, true);
       lastSentAt.current = now;
     }
     if (stopTimer.current) clearTimeout(stopTimer.current);

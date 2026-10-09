@@ -8,7 +8,7 @@ import { Avatar } from "@/components/ui/Avatar";
 import { Button } from "@/components/ui/Button";
 import { Input } from "@/components/ui/Input";
 import { Dialog, DialogContent, DialogFooter, DialogTitle } from "@/components/ui/Dialog";
-import * as api from "@/lib/mock/api";
+import * as api from "@/lib/api";
 import { useGroupActions } from "@/hooks/useGroupActions";
 
 interface AddMembersDialogProps {

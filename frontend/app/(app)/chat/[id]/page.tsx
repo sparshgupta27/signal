@@ -10,7 +10,7 @@ import { useMessages } from "@/hooks/useMessages";
 import { useMarkRead } from "@/hooks/useMarkRead";
 import { useChatStore } from "@/store/chatStore";
 import { useUiStore } from "@/store/uiStore";
-import { CURRENT_USER_ID } from "@/lib/mock/data";
+import { getCurrentUserId } from "@/lib/session";
 
 export default function ChatPage({ params }: { params: Promise<{ id: string }> }) {
   const { id: conversationId } = use(params);
@@ -27,7 +27,7 @@ export default function ChatPage({ params }: { params: Promise<{ id: string }> }
   const setReplyTarget = useUiStore((s) => s.setReplyTarget);
   const replyTo = replyTargetId ? messages.find((m) => m.id === replyTargetId) ?? null : null;
 
-  useMarkRead(conversationId, messages.length);
+  useMarkRead(conversationId, messages[messages.length - 1]?.id);
 
   useEffect(() => {
     setActiveConversationId(conversationId);
@@ -47,7 +47,7 @@ export default function ChatPage({ params }: { params: Promise<{ id: string }> }
     );
   }
 
-  const canSend = conversation.memberIds.includes(CURRENT_USER_ID);
+  const canSend = conversation.memberIds.includes(getCurrentUserId() ?? "");
 
   return (
     <div className="relative flex min-w-0 flex-1">

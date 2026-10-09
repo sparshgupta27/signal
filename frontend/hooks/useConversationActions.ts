@@ -2,8 +2,7 @@ import { useCallback } from "react";
 import { useQueryClient } from "@tanstack/react-query";
 import { toast } from "sonner";
 import type { Conversation } from "@/types";
-import * as api from "@/lib/mock/api";
-import { mockSocket } from "@/lib/mock/socket";
+import * as api from "@/lib/api";
 import { formatDisappearingDuration } from "@/lib/format";
 import { conversationsQueryKey } from "./useConversations";
 
@@ -60,10 +59,9 @@ export function useConversationActions() {
     [patch]
   );
 
-  // Our mock store has no separate "deleted" state, so both archive and
-  // delete route through isArchived — it's already excluded everywhere
-  // (chat list, periodic simulated messages), which also stops a "deleted"
-  // chat from silently reappearing if a background event targets its id.
+  // Archive and delete both route through isArchived — there's no separate
+  // "deleted" state server-side either, and it's already excluded from the
+  // chat list query everywhere.
   const archive = useCallback(
     async (conversation: Conversation) => {
       await api.setConversationFlags(conversation.id, { isArchived: true });
@@ -82,18 +80,22 @@ export function useConversationActions() {
     [removeFromList]
   );
 
-  // Routed through the socket (not api.setConversationFlags) since setting a
-  // timer also posts a system message into the open thread — the socket is
-  // the one place that can touch both the conversation and message stores
-  // and emit both events; useSocketBridge patches conversation.updated into
-  // this same query cache, so no local patch() call is needed here.
-  const setDisappearing = useCallback((conversationId: string, seconds: number | null) => {
-    mockSocket.setDisappearingSeconds(conversationId, seconds);
-    toast(
-      seconds
-        ? `Disappearing messages set to ${formatDisappearingDuration(seconds)}`
-        : "Disappearing messages turned off"
-    );
+  // Not patched locally — the backend posts a system message AND broadcasts
+  // conversation.updated over the same WebSocket useSocketBridge already
+  // listens on, so both the open thread and this query cache update
+  // themselves. Can genuinely fail now (admins-only in a group), unlike the
+  // old mock version which always succeeded.
+  const setDisappearing = useCallback(async (conversationId: string, seconds: number | null) => {
+    try {
+      await api.setDisappearing(conversationId, seconds);
+      toast(
+        seconds
+          ? `Disappearing messages set to ${formatDisappearingDuration(seconds)}`
+          : "Disappearing messages turned off"
+      );
+    } catch {
+      toast("Couldn't update disappearing messages");
+    }
   }, []);
 
   return { togglePin, toggleMute, toggleRead, archive, remove, setDisappearing };

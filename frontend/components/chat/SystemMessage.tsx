@@ -1,10 +1,11 @@
 import type { Message } from "@/types";
-import { CURRENT_USER_ID, getUser } from "@/lib/mock/data";
+import { getCurrentUserId } from "@/lib/session";
+import { getUser } from "@/lib/users";
 import { formatDisappearingDuration } from "@/lib/format";
 
 function nameOf(id: string | undefined): string {
   if (!id) return "Someone";
-  if (id === CURRENT_USER_ID) return "You";
+  if (id === getCurrentUserId()) return "You";
   return getUser(id)?.name ?? "Someone";
 }
 

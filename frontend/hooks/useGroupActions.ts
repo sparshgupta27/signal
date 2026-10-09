@@ -2,7 +2,7 @@ import { useCallback } from "react";
 import { useQueryClient } from "@tanstack/react-query";
 import { toast } from "sonner";
 import type { Conversation, GroupRole } from "@/types";
-import * as api from "@/lib/mock/api";
+import * as api from "@/lib/api";
 import { conversationsQueryKey } from "./useConversations";
 
 export function useGroupActions() {

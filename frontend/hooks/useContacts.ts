@@ -1,5 +1,5 @@
 import { useQuery } from "@tanstack/react-query";
-import * as api from "@/lib/mock/api";
+import * as api from "@/lib/api";
 
 export const contactsQueryKey = ["contacts"] as const;
 

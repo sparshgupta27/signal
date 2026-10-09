@@ -1,5 +1,5 @@
 import { useMemo } from "react";
-import { getUser } from "@/lib/mock/data";
+import { getUser } from "@/lib/users";
 import { usePresenceStore } from "@/store/presenceStore";
 
 export function usePresence(userId: string | undefined) {

@@ -10,7 +10,7 @@ import { NewChatDialog } from "@/components/dialogs/NewChatDialog";
 import { AddContactDialog } from "@/components/dialogs/AddContactDialog";
 import { conversationsQueryKey, useConversations } from "@/hooks/useConversations";
 import { useUiStore } from "@/store/uiStore";
-import * as api from "@/lib/mock/api";
+import * as api from "@/lib/api";
 
 export function ChatListHeader() {
   const [addContactOpen, setAddContactOpen] = useState(false);

@@ -1,7 +1,7 @@
 import { useCallback } from "react";
 import { useQueryClient } from "@tanstack/react-query";
 import { toast } from "sonner";
-import * as api from "@/lib/mock/api";
+import * as api from "@/lib/api";
 import { contactsQueryKey } from "./useContacts";
 
 export function useContactActions() {

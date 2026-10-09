@@ -9,8 +9,8 @@ import { SearchResults } from "@/components/chat-list/SearchResults";
 import { useConversations } from "@/hooks/useConversations";
 import { useChatStore } from "@/store/chatStore";
 import { useUiStore } from "@/store/uiStore";
-import * as api from "@/lib/mock/api";
-import type { SearchResults as SearchResultsData } from "@/lib/mock/api";
+import * as api from "@/lib/api";
+import type { SearchResults as SearchResultsData } from "@/lib/api";
 import { cn } from "@/lib/cn";
 
 const MIN_WIDTH = 280;
@@ -34,13 +34,43 @@ function ListSkeleton() {
   );
 }
 
-function EmptyList({ unreadOnly }: { unreadOnly: boolean }) {
+function EmptyList({ unreadOnly, groupsOnly }: { unreadOnly: boolean; groupsOnly: boolean }) {
+  const message =
+    unreadOnly && groupsOnly
+      ? "No unread groups"
+      : groupsOnly
+        ? "No groups yet"
+        : unreadOnly
+          ? "No unread chats"
+          : "No chats yet — start one with the pencil button";
   return (
     <div className="flex h-full flex-col items-center justify-center gap-2 px-8 text-center">
-      <p className="text-[13.5px] text-secondary">
-        {unreadOnly ? "No unread chats" : "No chats yet — start one with the pencil button"}
-      </p>
+      <p className="text-[13.5px] text-secondary">{message}</p>
     </div>
+  );
+}
+
+function FilterChip({
+  label,
+  active,
+  onClick,
+}: {
+  label: string;
+  active: boolean;
+  onClick: () => void;
+}) {
+  return (
+    <button
+      type="button"
+      onClick={onClick}
+      aria-pressed={active}
+      className={cn(
+        "rounded-full px-3 py-1 text-[12.5px] font-medium transition-colors duration-[120ms] ease-signal",
+        active ? "bg-accent text-on-accent" : "bg-row-hover text-secondary hover:text-primary"
+      )}
+    >
+      {label}
+    </button>
   );
 }
 
@@ -61,6 +91,7 @@ export function ListPane({ fullWidth = false, compact = false }: ListPaneProps) 
   const [width, setWidth] = useState(readStoredWidth);
   const [query, setQueryState] = useState("");
   const [unreadOnly, setUnreadOnly] = useState(false);
+  const [groupsOnly, setGroupsOnly] = useState(false);
   const [results, setResults] = useState<SearchResultsData | null>(null);
   const { conversations, isLoading } = useConversations();
   const activeConversationId = useChatStore((s) => s.activeConversationId);
@@ -119,9 +150,10 @@ export function ListPane({ fullWidth = false, compact = false }: ListPaneProps) 
   };
 
   const visibleConversations = useMemo(() => {
-    if (!unreadOnly) return conversations;
-    return conversations.filter((c) => c.unreadCount > 0);
-  }, [conversations, unreadOnly]);
+    return conversations.filter(
+      (c) => (!unreadOnly || c.unreadCount > 0) && (!groupsOnly || c.type === "group")
+    );
+  }, [conversations, unreadOnly, groupsOnly]);
 
   const isSearching = query.trim().length > 0;
 
@@ -141,18 +173,16 @@ export function ListPane({ fullWidth = false, compact = false }: ListPaneProps) 
 
       {!isSearching && (
         <div className="flex items-center gap-2 px-3 pb-2">
-          <button
-            type="button"
-            onClick={() => setUnreadOnly((v) => !v)}
-            className={cn(
-              "rounded-full px-3 py-1 text-[12.5px] font-medium transition-colors duration-[120ms] ease-signal",
-              unreadOnly
-                ? "bg-accent text-on-accent"
-                : "bg-row-hover text-secondary hover:text-primary"
-            )}
-          >
-            Unread
-          </button>
+          <FilterChip
+            label="All"
+            active={!unreadOnly && !groupsOnly}
+            onClick={() => {
+              setUnreadOnly(false);
+              setGroupsOnly(false);
+            }}
+          />
+          <FilterChip label="Unread" active={unreadOnly} onClick={() => setUnreadOnly((v) => !v)} />
+          <FilterChip label="Groups" active={groupsOnly} onClick={() => setGroupsOnly((v) => !v)} />
         </div>
       )}
 
@@ -166,7 +196,7 @@ export function ListPane({ fullWidth = false, compact = false }: ListPaneProps) 
         ) : isLoading ? (
           <ListSkeleton />
         ) : visibleConversations.length === 0 ? (
-          <EmptyList unreadOnly={unreadOnly} />
+          <EmptyList unreadOnly={unreadOnly} groupsOnly={groupsOnly} />
         ) : (
           <AnimatePresence initial={false}>
             {visibleConversations.map((c) => (

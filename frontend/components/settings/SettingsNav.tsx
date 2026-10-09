@@ -6,7 +6,7 @@ import { usePathname, useRouter } from "next/navigation";
 import { Bell, HelpCircle, Laptop2, LogOut, MessageSquare, Palette, Shield, User } from "lucide-react";
 import { ConfirmDialog } from "@/components/dialogs/ConfirmDialog";
 import { cn } from "@/lib/cn";
-import * as auth from "@/lib/mock/auth";
+import { clearSession } from "@/lib/session";
 
 const SECTIONS = [
   { slug: "profile", label: "Profile", icon: User },
@@ -72,7 +72,7 @@ export function SettingsNav({ fullWidth = false }: { fullWidth?: boolean }) {
         description="You can always sign back in with your phone number or username."
         confirmLabel="Log out"
         onConfirm={() => {
-          auth.logout();
+          clearSession();
           router.replace("/welcome");
         }}
       />

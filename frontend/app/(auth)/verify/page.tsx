@@ -6,7 +6,8 @@ import { toast } from "sonner";
 import { Logo } from "@/components/ui/Logo";
 import { AuthShell } from "@/components/auth/AuthShell";
 import { OtpInput } from "@/components/auth/OtpInput";
-import * as auth from "@/lib/mock/auth";
+import * as api from "@/lib/api";
+import { setSession } from "@/lib/session";
 
 const RESEND_SECONDS = 30;
 
@@ -37,15 +38,16 @@ function VerifyForm() {
   const handleComplete = async (value: string) => {
     setVerifying(true);
     setError(false);
-    const result = await auth.verifyOtp(identifier, value);
-    if (!result.success) {
+    const result = await api.verifyOtp(identifier, value);
+    if (!result.success || !result.accessToken || !result.user) {
       setError(true);
       setShakeKey((k) => k + 1);
       setCode("");
       setVerifying(false);
       return;
     }
-    if (result.isNewUser) {
+    setSession(result.accessToken, result.user, !result.needsProfile);
+    if (result.needsProfile) {
       router.push("/profile-setup");
     } else {
       router.push("/");
@@ -54,7 +56,7 @@ function VerifyForm() {
 
   const handleResend = async () => {
     if (countdown > 0) return;
-    const { otp } = await auth.requestOtp(identifier);
+    const { otp } = await api.requestOtp(identifier);
     setOtpHint(otp);
     setCountdown(RESEND_SECONDS);
     toast("Code resent");

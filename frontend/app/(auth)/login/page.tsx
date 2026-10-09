@@ -6,35 +6,33 @@ import { Logo } from "@/components/ui/Logo";
 import { Button } from "@/components/ui/Button";
 import { Input } from "@/components/ui/Input";
 import { AuthShell } from "@/components/auth/AuthShell";
-import * as auth from "@/lib/mock/auth";
+import { COUNTRIES, flagEmoji, isValidNationalNumber, lengthHint } from "@/lib/countries";
+import * as api from "@/lib/api";
 
-const COUNTRY_CODES = [
-  { dial: "+91", flag: "🇮🇳", label: "India" },
-  { dial: "+1", flag: "🇺🇸", label: "United States" },
-  { dial: "+44", flag: "🇬🇧", label: "United Kingdom" },
-  { dial: "+61", flag: "🇦🇺", label: "Australia" },
-  { dial: "+971", flag: "🇦🇪", label: "UAE" },
-];
+const DEFAULT_COUNTRY = COUNTRIES.find((c) => c.iso2 === "IN")!;
 
 export default function LoginPage() {
   const router = useRouter();
   const [mode, setMode] = useState<"phone" | "username">("phone");
-  const [dial, setDial] = useState(COUNTRY_CODES[0]!.dial);
+  const [iso2, setIso2] = useState(DEFAULT_COUNTRY.iso2);
   const [phone, setPhone] = useState("");
   const [username, setUsername] = useState("");
   const [submitting, setSubmitting] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
-  const isValid = mode === "phone" ? phone.replace(/\D/g, "").length >= 7 : username.trim().length >= 3;
+  const selectedCountry = COUNTRIES.find((c) => c.iso2 === iso2) ?? DEFAULT_COUNTRY;
+  const digits = phone.replace(/\D/g, "");
+  const isValid =
+    mode === "phone" ? isValidNationalNumber(selectedCountry, digits) : username.trim().length >= 3;
 
   const handleContinue = async () => {
     if (!isValid || submitting) return;
     setSubmitting(true);
     setError(null);
 
-    const identifier = mode === "phone" ? `${dial} ${phone.trim()}` : username.trim();
+    const identifier = mode === "phone" ? `${selectedCountry.dial} ${phone.trim()}` : username.trim();
     try {
-      const { otp } = await auth.requestOtp(identifier);
+      const { otp } = await api.requestOtp(identifier);
       router.push(`/verify?identifier=${encodeURIComponent(identifier)}&otp=${otp}`);
     } catch {
       setError("Something went wrong. Try again.");
@@ -54,30 +52,35 @@ export default function LoginPage() {
 
       <div className="w-full space-y-3">
         {mode === "phone" ? (
-          <div className="flex gap-2">
-            <select
-              value={dial}
-              onChange={(e) => setDial(e.target.value)}
-              className="h-9 shrink-0 rounded-md bg-input px-2 text-[14px] text-primary outline-none focus-visible:ring-2 focus-visible:ring-accent/40"
-            >
-              {COUNTRY_CODES.map((c) => (
-                <option key={c.dial} value={c.dial}>
-                  {c.flag} {c.dial}
-                </option>
-              ))}
-            </select>
-            <Input
-              pill={false}
-              type="tel"
-              inputMode="numeric"
-              placeholder="90000 00001"
-              value={phone}
-              onChange={(e) => setPhone(e.target.value)}
-              onKeyDown={(e) => e.key === "Enter" && handleContinue()}
-              className="flex-1"
-              autoFocus
-            />
-          </div>
+          <>
+            <div className="flex gap-2">
+              <select
+                value={iso2}
+                onChange={(e) => setIso2(e.target.value)}
+                className="h-9 w-32 shrink-0 truncate rounded-md bg-input px-2 text-[14px] text-primary outline-none focus-visible:ring-2 focus-visible:ring-accent/40"
+              >
+                {COUNTRIES.map((c) => (
+                  <option key={c.iso2} value={c.iso2}>
+                    {flagEmoji(c.iso2)} {c.name} ({c.dial})
+                  </option>
+                ))}
+              </select>
+              <Input
+                pill={false}
+                type="tel"
+                inputMode="numeric"
+                placeholder="90000 00001"
+                value={phone}
+                onChange={(e) => setPhone(e.target.value)}
+                onKeyDown={(e) => e.key === "Enter" && handleContinue()}
+                className="flex-1"
+                autoFocus
+              />
+            </div>
+            <p className="text-[12px] text-secondary">
+              Enter {lengthHint(selectedCountry)} for {selectedCountry.name}.
+            </p>
+          </>
         ) : (
           <Input
             pill={false}
