@@ -14,6 +14,7 @@ import { useIsContact } from "@/hooks/useContacts";
 import { formatDisappearingDuration, formatLastSeenLabel } from "@/lib/format";
 import { ComingSoonDialog } from "@/components/dialogs/ComingSoonDialog";
 import { DisappearingMessagesDialog } from "@/components/dialogs/DisappearingMessagesDialog";
+import { SafetyNumberDialog } from "@/components/dialogs/SafetyNumberDialog";
 import { SharedMediaDialog } from "@/components/dialogs/SharedMediaDialog";
 import { useSharedMedia } from "@/hooks/useSharedMedia";
 
@@ -70,6 +71,7 @@ export function ContactDetails({ conversation }: { conversation: Conversation })
   const [comingSoon, setComingSoon] = useState<string | null>(null);
   const [disappearingOpen, setDisappearingOpen] = useState(false);
   const [sharedMediaOpen, setSharedMediaOpen] = useState(false);
+  const [safetyNumberOpen, setSafetyNumberOpen] = useState(false);
   const { media } = useSharedMedia(conversation.id);
   const otherId = getOtherMemberId(conversation);
   const user = getUser(otherId);
@@ -127,7 +129,7 @@ export function ContactDetails({ conversation }: { conversation: Conversation })
       </SectionCard>
 
       <SectionCard>
-        <Row icon={Lock} label="View safety number" onClick={() => setComingSoon("Safety number")} />
+        <Row icon={Lock} label="View safety number" onClick={() => setSafetyNumberOpen(true)} />
       </SectionCard>
 
       <div className="mx-4">
@@ -157,6 +159,12 @@ export function ContactDetails({ conversation }: { conversation: Conversation })
         conversationId={conversation.id}
         open={sharedMediaOpen}
         onOpenChange={setSharedMediaOpen}
+      />
+
+      <SafetyNumberDialog
+        otherUserId={otherId}
+        open={safetyNumberOpen}
+        onOpenChange={setSafetyNumberOpen}
       />
     </div>
   );

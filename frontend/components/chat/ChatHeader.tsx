@@ -9,6 +9,7 @@ import { IconButton } from "@/components/ui/IconButton";
 import { Menu, MenuContent, MenuItem, MenuSeparator, MenuTrigger } from "@/components/ui/Menu";
 import { ComingSoonDialog } from "@/components/dialogs/ComingSoonDialog";
 import { DisappearingMessagesDialog } from "@/components/dialogs/DisappearingMessagesDialog";
+import { SafetyNumberDialog } from "@/components/dialogs/SafetyNumberDialog";
 import {
   getConversationAvatarId,
   getConversationAvatarUrl,
@@ -25,6 +26,7 @@ import { useRouter } from "next/navigation";
 export function ChatHeader({ conversation }: { conversation: Conversation }) {
   const [comingSoon, setComingSoon] = useState<string | null>(null);
   const [disappearingOpen, setDisappearingOpen] = useState(false);
+  const [safetyNumberOpen, setSafetyNumberOpen] = useState(false);
   const title = getConversationTitle(conversation);
   const otherId = getOtherMemberId(conversation);
   const presence = usePresence(conversation.type === "direct" ? otherId : undefined);
@@ -90,7 +92,9 @@ export function ChatHeader({ conversation }: { conversation: Conversation }) {
           </MenuTrigger>
           <MenuContent align="end">
             <MenuItem onSelect={() => setDisappearingOpen(true)}>Disappearing messages</MenuItem>
-            <MenuItem onSelect={() => setComingSoon("Safety number")}>View safety number</MenuItem>
+            {conversation.type === "direct" && (
+              <MenuItem onSelect={() => setSafetyNumberOpen(true)}>View safety number</MenuItem>
+            )}
             <MenuItem onSelect={() => toggleMute(conversation, !conversation.isMuted)}>
               {conversation.isMuted ? "Unmute" : "Mute"}
             </MenuItem>
@@ -113,6 +117,12 @@ export function ChatHeader({ conversation }: { conversation: Conversation }) {
         onOpenChange={setDisappearingOpen}
         currentSeconds={conversation.disappearingSeconds}
         onConfirm={(seconds) => setDisappearing(conversation.id, seconds)}
+      />
+
+      <SafetyNumberDialog
+        otherUserId={otherId}
+        open={safetyNumberOpen}
+        onOpenChange={setSafetyNumberOpen}
       />
     </div>
   );
