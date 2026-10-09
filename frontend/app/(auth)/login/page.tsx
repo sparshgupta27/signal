@@ -21,9 +21,24 @@ export default function LoginPage() {
   const [error, setError] = useState<string | null>(null);
 
   const selectedCountry = COUNTRIES.find((c) => c.iso2 === iso2) ?? DEFAULT_COUNTRY;
+  const maxDigits = Math.max(...selectedCountry.lengths);
   const digits = phone.replace(/\D/g, "");
   const isValid =
     mode === "phone" ? isValidNationalNumber(selectedCountry, digits) : username.trim().length >= 3;
+
+  // Caps input at the selected country's own max length (10 for India, 11
+  // for Brazil, etc.) instead of letting someone type past what any valid
+  // number there could be — isValidNationalNumber only disabled the button,
+  // it never stopped you from typing more digits in the first place.
+  const handlePhoneChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    setPhone(e.target.value.replace(/\D/g, "").slice(0, maxDigits));
+  };
+
+  const handleCountryChange = (nextIso2: string) => {
+    setIso2(nextIso2);
+    const nextMax = Math.max(...(COUNTRIES.find((c) => c.iso2 === nextIso2)?.lengths ?? [maxDigits]));
+    setPhone((prev) => prev.replace(/\D/g, "").slice(0, nextMax));
+  };
 
   const handleContinue = async () => {
     if (!isValid || submitting) return;
@@ -56,7 +71,7 @@ export default function LoginPage() {
             <div className="flex gap-2">
               <select
                 value={iso2}
-                onChange={(e) => setIso2(e.target.value)}
+                onChange={(e) => handleCountryChange(e.target.value)}
                 className="h-9 w-32 shrink-0 truncate rounded-md bg-input px-2 text-[14px] text-primary outline-none focus-visible:ring-2 focus-visible:ring-accent/40"
               >
                 {COUNTRIES.map((c) => (
@@ -69,9 +84,10 @@ export default function LoginPage() {
                 pill={false}
                 type="tel"
                 inputMode="numeric"
+                maxLength={maxDigits}
                 placeholder="90000 00001"
                 value={phone}
-                onChange={(e) => setPhone(e.target.value)}
+                onChange={handlePhoneChange}
                 onKeyDown={(e) => e.key === "Enter" && handleContinue()}
                 className="flex-1"
                 autoFocus
