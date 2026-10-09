@@ -11,6 +11,7 @@ import { Menu, MenuContent, MenuItem, MenuLabel, MenuSeparator, MenuTrigger } fr
 import { ConfirmDialog } from "@/components/dialogs/ConfirmDialog";
 import { cn } from "@/lib/cn";
 import { clearSession } from "@/lib/session";
+import * as api from "@/lib/api";
 import { useConversations } from "@/hooks/useConversations";
 import { useMyProfile } from "@/hooks/useMyProfile";
 import { useSession } from "@/hooks/useSession";
@@ -109,8 +110,10 @@ export function NavRail() {
         description="You can always sign back in with your phone number or username."
         confirmLabel="Log out"
         onConfirm={() => {
-          clearSession();
-          router.replace("/welcome");
+          api.logout().finally(() => {
+            clearSession();
+            router.replace("/welcome");
+          });
         }}
       />
     </nav>

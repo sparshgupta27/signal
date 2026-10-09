@@ -1,4 +1,5 @@
 import base64
+import hashlib
 import secrets
 import time
 import uuid
@@ -8,22 +9,42 @@ import jwt
 from .config import settings
 
 
-def create_access_token(user_id: str) -> str:
+def create_access_token(user_id: str, session_id: str) -> str:
+    """Short-lived (15 min) — session_id ties it to an auth_sessions row so
+    logout (which revokes that row) takes effect immediately instead of
+    waiting out whatever's left of the token's own expiry."""
     now = int(time.time())
     payload = {
         "sub": user_id,
+        "sid": session_id,
         "iat": now,
         "exp": now + settings.access_token_expire_minutes * 60,
     }
     return jwt.encode(payload, settings.jwt_secret, algorithm=settings.jwt_algorithm)
 
 
-def decode_access_token(token: str) -> str | None:
+def decode_access_token(token: str) -> tuple[str, str] | None:
+    """Returns (user_id, session_id), or None if the JWT itself is invalid
+    or expired. Does NOT check revocation — callers needing that use
+    core.deps.resolve_user_from_token, which looks up the session row too."""
     try:
         payload = jwt.decode(token, settings.jwt_secret, algorithms=[settings.jwt_algorithm])
-        return payload.get("sub")
+        sub, sid = payload.get("sub"), payload.get("sid")
+        if not sub or not sid:
+            return None
+        return sub, sid
     except jwt.PyJWTError:
         return None
+
+
+def generate_refresh_token() -> str:
+    return secrets.token_urlsafe(32)
+
+
+def hash_token(token: str) -> str:
+    """Refresh tokens are stored as a hash, same discipline as a password —
+    the raw token only ever exists in transit and in the client's storage."""
+    return hashlib.sha256(token.encode("utf-8")).hexdigest()
 
 
 def new_id(prefix: str = "") -> str:

@@ -7,6 +7,7 @@ import { Bell, HelpCircle, Laptop2, LogOut, MessageSquare, Palette, Shield, User
 import { ConfirmDialog } from "@/components/dialogs/ConfirmDialog";
 import { cn } from "@/lib/cn";
 import { clearSession } from "@/lib/session";
+import * as api from "@/lib/api";
 
 const SECTIONS = [
   { slug: "profile", label: "Profile", icon: User },
@@ -72,8 +73,10 @@ export function SettingsNav({ fullWidth = false }: { fullWidth?: boolean }) {
         description="You can always sign back in with your phone number or username."
         confirmLabel="Log out"
         onConfirm={() => {
-          clearSession();
-          router.replace("/welcome");
+          api.logout().finally(() => {
+            clearSession();
+            router.replace("/welcome");
+          });
         }}
       />
     </div>

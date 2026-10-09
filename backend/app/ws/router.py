@@ -6,7 +6,7 @@ from sqlalchemy.orm import Session
 
 from .. import models
 from ..core.database import SessionLocal
-from ..core.security import decode_access_token
+from ..core.deps import resolve_user_from_token
 from ..services import conversation_service, message_service
 from .broadcast import broadcast_conversation_updated, broadcast_message_new, broadcast_message_status, json_payload
 from .manager import manager
@@ -16,17 +16,13 @@ router = APIRouter()
 
 @router.websocket("/ws")
 async def ws_endpoint(websocket: WebSocket, token: str = Query(...)):
-    user_id = decode_access_token(token)
-    if not user_id:
-        await websocket.close(code=4401)
-        return
-
     db: Session = SessionLocal()
-    user = db.get(models.User, user_id)
+    user = resolve_user_from_token(db, token)
     if not user:
         db.close()
         await websocket.close(code=4401)
         return
+    user_id = user.id
 
     was_offline = not manager.is_online(user_id)
     await manager.connect(user_id, websocket)

@@ -39,6 +39,25 @@ class User(Base):
     )
 
 
+class AuthSession(Base):
+    """Backs the refresh-token flow and server-side logout revocation —
+    not named `Session` to avoid colliding with sqlalchemy.orm.Session,
+    which every service function already imports under that name."""
+
+    __tablename__ = "auth_sessions"
+
+    id: Mapped[str] = mapped_column(primary_key=True, default=gen_id)
+    user_id: Mapped[str] = mapped_column(ForeignKey("users.id", ondelete="CASCADE"))
+    # sha256 of the refresh token — the raw token is never stored, same
+    # discipline as a password hash.
+    refresh_token_hash: Mapped[str] = mapped_column(unique=True)
+    created_at: Mapped[datetime] = mapped_column(default=utcnow)
+    expires_at: Mapped[datetime] = mapped_column(nullable=False)
+    revoked_at: Mapped[datetime | None] = mapped_column(nullable=True)
+
+    __table_args__ = (Index("ix_auth_sessions_user", "user_id"),)
+
+
 class Contact(Base):
     __tablename__ = "contacts"
 

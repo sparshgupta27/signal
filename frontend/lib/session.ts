@@ -8,6 +8,7 @@ import type { User } from "@/types";
  */
 export interface Session {
   accessToken: string;
+  refreshToken: string;
   user: User;
   /** False between a brand-new signup's verify-otp and their completing profile-setup. */
   onboarded: boolean;
@@ -63,6 +64,10 @@ export function getAccessToken(): string | null {
   return readSession()?.accessToken ?? null;
 }
 
+export function getRefreshToken(): string | null {
+  return readSession()?.refreshToken ?? null;
+}
+
 /** Drop-in replacement for the old CURRENT_USER_ID constant — same
  * synchronous call-site shape, now backed by the real logged-in user. */
 export function getCurrentUserId(): string | null {
@@ -73,8 +78,21 @@ export function getCurrentUser(): User | null {
   return readSession()?.user ?? null;
 }
 
-export function setSession(accessToken: string, user: User, onboarded: boolean): void {
-  writeSession({ accessToken, user, onboarded });
+export function setSession(
+  accessToken: string,
+  refreshToken: string,
+  user: User,
+  onboarded: boolean
+): void {
+  writeSession({ accessToken, refreshToken, user, onboarded });
+}
+
+/** Swaps in a freshly rotated token pair after a silent refresh, without
+ * touching the rest of the session (user, onboarded). */
+export function setTokens(accessToken: string, refreshToken: string): void {
+  const current = readSession();
+  if (!current) return;
+  writeSession({ ...current, accessToken, refreshToken });
 }
 
 /** Called after PATCH /users/me so every screen reading the session sees the edit. */

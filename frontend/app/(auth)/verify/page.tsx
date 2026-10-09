@@ -39,14 +39,14 @@ function VerifyForm() {
     setVerifying(true);
     setError(false);
     const result = await api.verifyOtp(identifier, value);
-    if (!result.success || !result.accessToken || !result.user) {
+    if (!result.success || !result.accessToken || !result.refreshToken || !result.user) {
       setError(true);
       setShakeKey((k) => k + 1);
       setCode("");
       setVerifying(false);
       return;
     }
-    setSession(result.accessToken, result.user, !result.needsProfile);
+    setSession(result.accessToken, result.refreshToken, result.user, !result.needsProfile);
     if (result.needsProfile) {
       router.push("/profile-setup");
     } else {

@@ -1,12 +1,24 @@
 import secrets
+from datetime import datetime, timedelta, timezone
 
-from fastapi import APIRouter, Depends, Request
+from fastapi import APIRouter, Depends, HTTPException, Request
+from fastapi.security import HTTPAuthorizationCredentials
+from sqlalchemy import select
 from sqlalchemy.orm import Session
 
 from .. import mappers, models, schemas
+from ..core.config import settings
 from ..core.database import get_db
+from ..core.deps import bearer_scheme
 from ..core.limiter import limiter
-from ..core.security import create_access_token, generate_mock_public_key, new_id
+from ..core.security import (
+    create_access_token,
+    decode_access_token,
+    generate_mock_public_key,
+    generate_refresh_token,
+    hash_token,
+    new_id,
+)
 from ..directory import find_user_by_identifier
 
 router = APIRouter(prefix="/api/v1/auth", tags=["auth"])
@@ -25,6 +37,24 @@ def _normalize(identifier: str) -> str:
 
 def _generate_otp() -> str:
     return f"{secrets.randbelow(1_000_000):06d}"
+
+
+def _create_session(db: Session, user_id: str) -> tuple[str, str]:
+    """A fresh login/signup — new auth_sessions row backing a new refresh
+    token, plus the access token (short-lived, tied to this session's id)
+    handed back alongside it."""
+    now = datetime.now(timezone.utc)
+    refresh_token = generate_refresh_token()
+    session = models.AuthSession(
+        id=new_id("sess-"),
+        user_id=user_id,
+        refresh_token_hash=hash_token(refresh_token),
+        expires_at=now + timedelta(days=settings.refresh_token_expire_days),
+    )
+    db.add(session)
+    db.commit()
+    access_token = create_access_token(user_id, session.id)
+    return access_token, refresh_token
 
 
 @router.post("/request-otp", response_model=schemas.RequestOtpOut)
@@ -63,10 +93,58 @@ def verify_otp(request: Request, body: schemas.VerifyOtpIn, db: Session = Depend
         db.commit()
         db.refresh(user)
 
-    token = create_access_token(user.id)
+    access_token, refresh_token = _create_session(db, user.id)
     return schemas.VerifyOtpOut(
         success=True,
-        access_token=token,
+        access_token=access_token,
+        refresh_token=refresh_token,
         user=mappers.user_out(user, user.id),
         needs_profile=is_new_user,
     )
+
+
+@router.post("/refresh", response_model=schemas.RefreshTokenOut)
+@limiter.limit("30/minute")
+def refresh_token_endpoint(
+    request: Request, body: schemas.RefreshTokenIn, db: Session = Depends(get_db)
+):
+    """Silent refresh — exchanges a still-valid refresh token for a new
+    access token. Rotates the refresh token too (new hash, new expiry) so a
+    stolen-and-reused old one gets kicked out automatically on next refresh."""
+    now = datetime.now(timezone.utc)
+    session = db.execute(
+        select(models.AuthSession).where(
+            models.AuthSession.refresh_token_hash == hash_token(body.refresh_token)
+        )
+    ).scalar_one_or_none()
+    if not session or session.revoked_at is not None or session.expires_at <= now:
+        raise HTTPException(401, "Invalid or expired refresh token")
+
+    new_refresh_token = generate_refresh_token()
+    session.refresh_token_hash = hash_token(new_refresh_token)
+    session.expires_at = now + timedelta(days=settings.refresh_token_expire_days)
+    db.commit()
+
+    access_token = create_access_token(session.user_id, session.id)
+    return schemas.RefreshTokenOut(access_token=access_token, refresh_token=new_refresh_token)
+
+
+@router.post("/logout", status_code=204)
+def logout(
+    credentials: HTTPAuthorizationCredentials | None = Depends(bearer_scheme),
+    db: Session = Depends(get_db),
+):
+    """Revokes the session behind the presented access token — after this,
+    both that access token (via resolve_user_from_token's revocation check)
+    and its refresh token stop working immediately, not just once the
+    access token's own 15-minute expiry catches up."""
+    if credentials is None:
+        return
+    decoded = decode_access_token(credentials.credentials)
+    if not decoded:
+        return
+    _, session_id = decoded
+    session = db.get(models.AuthSession, session_id)
+    if session and session.revoked_at is None:
+        session.revoked_at = datetime.now(timezone.utc)
+        db.commit()

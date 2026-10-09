@@ -7,9 +7,8 @@ from sqlalchemy.orm import Session
 from .. import mappers, models, schemas
 from ..core.config import settings
 from ..core.database import get_db
-from ..core.deps import get_current_user
+from ..core.deps import get_current_user, resolve_user_from_token
 from ..core.limiter import limiter
-from ..core.security import decode_access_token
 from ..services import upload_service
 
 router = APIRouter(prefix="/api/v1/uploads", tags=["uploads"])
@@ -38,12 +37,9 @@ def _user_from_query_token(token: str = Query(...), db: Session = Depends(get_db
     # GET requests here are issued by <img src> / <a href download>, which
     # can't carry an Authorization header — same accepted tradeoff already
     # used by the WebSocket endpoint (token in the query string).
-    user_id = decode_access_token(token)
-    if not user_id:
-        raise HTTPException(401, "Invalid or expired token")
-    user = db.get(models.User, user_id)
+    user = resolve_user_from_token(db, token)
     if not user:
-        raise HTTPException(401, "User not found")
+        raise HTTPException(401, "Invalid or expired token")
     return user
 
 

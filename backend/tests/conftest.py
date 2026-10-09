@@ -23,9 +23,11 @@ os.environ["DISAPPEARING_SWEEP_INTERVAL_SECONDS"] = "0.2"
 import pytest  # noqa: E402
 from fastapi.testclient import TestClient  # noqa: E402
 
+from datetime import datetime, timedelta, timezone  # noqa: E402
+
 from app import models  # noqa: E402
 from app.core.database import Base, SessionLocal, engine  # noqa: E402
-from app.core.security import create_access_token  # noqa: E402
+from app.core.security import create_access_token, generate_refresh_token, hash_token, new_id  # noqa: E402
 from app.main import app  # noqa: E402
 from app.services.conversation_service import get_or_create_direct  # noqa: E402
 
@@ -66,7 +68,22 @@ def make_user(db, name: str = "Test User") -> models.User:
 
 
 def token_for(user_id: str) -> str:
-    return create_access_token(user_id)
+    """Creates a real auth_sessions row too — resolve_user_from_token
+    checks that row (for revocation), so a bare JWT with no backing
+    session would be rejected exactly like a logged-out one."""
+    session = SessionLocal()
+    try:
+        auth_session = models.AuthSession(
+            id=new_id("sess-"),
+            user_id=user_id,
+            refresh_token_hash=hash_token(generate_refresh_token()),
+            expires_at=datetime.now(timezone.utc) + timedelta(days=30),
+        )
+        session.add(auth_session)
+        session.commit()
+        return create_access_token(user_id, auth_session.id)
+    finally:
+        session.close()
 
 
 def auth_headers(user_id: str) -> dict:

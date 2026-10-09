@@ -6,7 +6,7 @@ import type {
   MessageAttachment,
   User,
 } from "@/types";
-import { getAccessToken, clearSession } from "./session";
+import { getAccessToken, getRefreshToken, clearSession, setTokens } from "./session";
 
 const API_BASE = process.env.NEXT_PUBLIC_API_URL ?? "http://localhost:8000";
 
@@ -19,13 +19,37 @@ export class ApiError extends Error {
   }
 }
 
-/** Shared by every call below. On a 401 the token is dead (expired/invalid)
- * — clear the session and bounce to /welcome rather than let every call
- * site handle that itself. */
-async function request<T>(
-  path: string,
-  init?: RequestInit & { skipAuth?: boolean }
-): Promise<T> {
+// Access tokens are short-lived (15 min) by design (see backend/app/core/
+// config.py) — a 401 here is the expected, routine way of finding out one
+// just expired, not necessarily a dead session. One silent refresh is
+// attempted transparently before giving up; concurrent 401s share the same
+// in-flight refresh instead of each hitting /auth/refresh separately.
+let refreshing: Promise<boolean> | null = null;
+
+function trySilentRefresh(): Promise<boolean> {
+  const token = getRefreshToken();
+  if (!token) return Promise.resolve(false);
+  if (!refreshing) {
+    refreshing = fetch(`${API_BASE}/api/v1/auth/refresh`, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ refreshToken: token }),
+    })
+      .then(async (res) => {
+        if (!res.ok) return false;
+        const body = (await res.json()) as { accessToken: string; refreshToken: string };
+        setTokens(body.accessToken, body.refreshToken);
+        return true;
+      })
+      .catch(() => false)
+      .finally(() => {
+        refreshing = null;
+      });
+  }
+  return refreshing;
+}
+
+function authHeaders(init?: RequestInit & { skipAuth?: boolean }): Headers {
   const headers = new Headers(init?.headers);
   if (!(init?.body instanceof FormData)) {
     headers.set("Content-Type", "application/json");
@@ -34,13 +58,28 @@ async function request<T>(
     const token = getAccessToken();
     if (token) headers.set("Authorization", `Bearer ${token}`);
   }
+  return headers;
+}
 
-  const res = await fetch(`${API_BASE}${path}`, { ...init, headers });
+/** Shared by every call below. On a 401, tries one silent refresh-and-retry
+ * before concluding the session is actually dead — only then is it cleared
+ * and the user bounced to /welcome. */
+async function request<T>(
+  path: string,
+  init?: RequestInit & { skipAuth?: boolean }
+): Promise<T> {
+  let res = await fetch(`${API_BASE}${path}`, { ...init, headers: authHeaders(init) });
 
   if (res.status === 401 && !init?.skipAuth) {
-    clearSession();
-    if (typeof window !== "undefined") window.location.href = "/welcome";
-    throw new ApiError(401, "Session expired");
+    const refreshed = await trySilentRefresh();
+    if (refreshed) {
+      res = await fetch(`${API_BASE}${path}`, { ...init, headers: authHeaders(init) });
+    }
+    if (res.status === 401) {
+      clearSession();
+      if (typeof window !== "undefined") window.location.href = "/welcome";
+      throw new ApiError(401, "Session expired");
+    }
   }
   if (!res.ok) {
     const body = await res.json().catch(() => ({}));
@@ -128,12 +167,32 @@ export async function requestOtp(identifier: string): Promise<{ isNewUser: boole
 export async function verifyOtp(
   identifier: string,
   code: string
-): Promise<{ success: boolean; accessToken?: string; user?: User; needsProfile: boolean }> {
+): Promise<{
+  success: boolean;
+  accessToken?: string;
+  refreshToken?: string;
+  user?: User;
+  needsProfile: boolean;
+}> {
   return request("/api/v1/auth/verify-otp", {
     method: "POST",
     body: JSON.stringify({ identifier, code }),
     skipAuth: true,
   });
+}
+
+export function refreshAccessToken(
+  refreshToken: string
+): Promise<{ accessToken: string; refreshToken: string }> {
+  return request("/api/v1/auth/refresh", {
+    method: "POST",
+    body: JSON.stringify({ refreshToken }),
+    skipAuth: true,
+  });
+}
+
+export async function logout(): Promise<void> {
+  await request("/api/v1/auth/logout", { method: "POST" }).catch(() => {});
 }
 
 export function getMe(): Promise<User> {

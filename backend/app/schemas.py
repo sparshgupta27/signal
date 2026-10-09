@@ -51,8 +51,18 @@ class UserOut(CamelModel):
 class VerifyOtpOut(CamelModel):
     success: bool
     access_token: str | None = None
+    refresh_token: str | None = None
     user: UserOut | None = None
     needs_profile: bool = False
+
+
+class RefreshTokenIn(CamelModel):
+    refresh_token: str
+
+
+class RefreshTokenOut(CamelModel):
+    access_token: str
+    refresh_token: str
 
 
 class DirectoryUserOut(UserOut):

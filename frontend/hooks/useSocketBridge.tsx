@@ -6,7 +6,7 @@ import { useRouter } from "next/navigation";
 import { toast } from "sonner";
 import type { Conversation } from "@/types";
 import * as api from "@/lib/api";
-import { getCurrentUserId } from "@/lib/session";
+import { getCurrentUserId, getRefreshToken, setTokens } from "@/lib/session";
 import { getUser, getUsersVersion, primeUser, primeUsers, subscribeUsers } from "@/lib/users";
 import { sortConversations } from "@/lib/api";
 import { wsClient } from "@/lib/ws";
@@ -39,6 +39,22 @@ export function useSocketBridge() {
 
   useEffect(() => {
     wsClient.start();
+
+    // Access tokens are short-lived (15 min — see backend/app/core/
+    // config.py) by design. lib/api.ts already refreshes reactively on a
+    // 401, but the WS connection doesn't go through that path: it only
+    // presents its token at connect time, so a reconnect (network blip,
+    // laptop sleep) with a token that's gone stale in the meantime would
+    // otherwise fail closed and keep retrying forever. Refreshing well
+    // inside the 15-minute window keeps the token it reconnects with fresh.
+    const refreshInterval = setInterval(() => {
+      const refreshToken = getRefreshToken();
+      if (!refreshToken) return;
+      api
+        .refreshAccessToken(refreshToken)
+        .then(({ accessToken, refreshToken: next }) => setTokens(accessToken, next))
+        .catch(() => {});
+    }, 10 * 60 * 1000);
 
     // Primes the whole user directory once per session, so every seeded
     // conversation's members/senders resolve immediately instead of one at
@@ -147,6 +163,7 @@ export function useSocketBridge() {
       // i.e. on logout — so disconnecting here is exactly "no socket once
       // nobody's logged in."
       wsClient.stop();
+      clearInterval(refreshInterval);
       offConversationUpdated();
       offPresence();
       offTyping();
