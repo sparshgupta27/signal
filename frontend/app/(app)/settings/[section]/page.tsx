@@ -58,7 +58,17 @@ export default function SettingsSectionPage({
   const [notificationsEnabled, setNotificationsEnabled] = useState(true);
   const [readReceipts, setReadReceipts] = useState(true);
   const [typingIndicators, setTypingIndicators] = useState(true);
-  const [showLastSeen, setShowLastSeen] = useState(true);
+
+  // Unlike name/about/avatar, this applies immediately on toggle rather than
+  // batching into the profile form's Save — it's a privacy setting, not a
+  // draft, and the backend genuinely enforces it (last_seen_at is nulled
+  // out for everyone else once this is off), so the switch should reflect
+  // reality the moment it changes rather than only after a separate Save.
+  const handleShowLastSeenChange = (checked: boolean) => {
+    updateProfile({ showLastSeen: checked }).catch(() => {
+      toast("Couldn't update that setting");
+    });
+  };
 
   const sectionLabel = SETTINGS_SECTIONS.find((s) => s.slug === section)?.label ?? "Settings";
 
@@ -194,7 +204,13 @@ export default function SettingsSectionPage({
             />
             <SettingsRow
               label="Show last seen"
-              control={<Switch checked={showLastSeen} onCheckedChange={setShowLastSeen} label="Show last seen" />}
+              control={
+                <Switch
+                  checked={profile.showLastSeen}
+                  onCheckedChange={handleShowLastSeenChange}
+                  label="Show last seen"
+                />
+              }
             />
           </SettingsCard>
         </>

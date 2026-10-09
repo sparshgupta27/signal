@@ -60,7 +60,13 @@ async def ws_endpoint(websocket: WebSocket, token: str = Query(...)):
                     "data": {
                         "userId": user_id,
                         "isOnline": False,
-                        "lastSeenAt": user.last_seen_at.isoformat(),
+                        # Broadcast to everyone, so same rule as the REST
+                        # mappers: nulled out for everyone but the user
+                        # themselves once they've hidden it — and nobody else
+                        # is "themselves" here, since this fires on disconnect.
+                        "lastSeenAt": (
+                            user.last_seen_at.isoformat() if user.show_last_seen else None
+                        ),
                     },
                 }
             )

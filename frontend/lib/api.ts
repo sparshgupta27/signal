@@ -140,7 +140,12 @@ export function getMe(): Promise<User> {
   return request("/api/v1/users/me");
 }
 
-export function updateMe(input: { name?: string; about?: string; avatarUrl?: string | null }): Promise<User> {
+export function updateMe(input: {
+  name?: string;
+  about?: string;
+  avatarUrl?: string | null;
+  showLastSeen?: boolean;
+}): Promise<User> {
   return request("/api/v1/users/me", { method: "PATCH", body: JSON.stringify(input) });
 }
 

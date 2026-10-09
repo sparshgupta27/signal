@@ -9,6 +9,7 @@ export interface MyProfile {
   name: string;
   about: string;
   avatarUrl: string | null;
+  showLastSeen: boolean;
 }
 
 /** session.user (set at login, always immediately available) is the
@@ -21,12 +22,18 @@ export function useMyProfile(): MyProfile {
     name: user?.name ?? "",
     about: user?.about ?? "",
     avatarUrl: user?.avatarUrl ?? null,
+    showLastSeen: user?.showLastSeen ?? true,
   };
 }
 
 export function useUpdateMyProfile() {
   const queryClient = useQueryClient();
-  return async (patch: { name?: string; about?: string; avatarUrl?: string | null }) => {
+  return async (patch: {
+    name?: string;
+    about?: string;
+    avatarUrl?: string | null;
+    showLastSeen?: boolean;
+  }) => {
     const user = await api.updateMe(patch);
     updateSessionUser(user);
     // Keeps the shared user-directory cache (lib/users.ts) in sync too —

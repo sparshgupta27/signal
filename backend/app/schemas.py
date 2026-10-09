@@ -38,7 +38,11 @@ class UserOut(CamelModel):
     avatar_url: str | None = None
     about: str = ""
     is_online: bool = False
+    # None to anyone but the user themselves if they've hidden it — same
+    # null-it-out-for-everyone-else pattern as last_seen_at, not a leak of
+    # "whether privacy is on" to other users.
     last_seen_at: datetime | None = None
+    show_last_seen: bool | None = None
 
 
 class VerifyOtpOut(CamelModel):
@@ -56,6 +60,7 @@ class UpdateMeIn(CamelModel):
     name: str | None = None
     about: str | None = None
     avatar_url: str | None = None
+    show_last_seen: bool | None = None
 
 
 # --- contacts -----------------------------------------------------------------

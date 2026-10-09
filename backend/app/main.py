@@ -9,7 +9,7 @@ from slowapi.middleware import SlowAPIMiddleware
 
 from . import models  # noqa: F401 -- registers tables before create_all
 from .core.config import settings
-from .core.database import Base, SessionLocal, engine
+from .core.database import Base, SessionLocal, engine, ensure_columns
 from .core.limiter import limiter
 from .routers import auth, contacts, conversations, groups, messages, reactions, search, uploads, users
 from .seeding import run_seed
@@ -39,6 +39,7 @@ async def _disappearing_sweep_loop() -> None:
 @asynccontextmanager
 async def lifespan(_app: FastAPI):
     Base.metadata.create_all(bind=engine)
+    ensure_columns()
 
     db = SessionLocal()
     try:

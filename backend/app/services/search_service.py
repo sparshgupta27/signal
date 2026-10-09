@@ -55,7 +55,7 @@ def search(db: Session, user_id: str, query: str) -> schemas.SearchResultsOut:
     for contact in contact_rows:
         target = db.get(models.User, contact.contact_id)
         if target and ql in target.display_name.lower():
-            matched_contacts.append(mappers.directory_user_out(target, True))
+            matched_contacts.append(mappers.directory_user_out(target, True, user_id))
 
     matched_messages: list[schemas.SearchMessageHitOut] = []
     if by_conv_id:

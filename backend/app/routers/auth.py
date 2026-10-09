@@ -66,6 +66,6 @@ def verify_otp(request: Request, body: schemas.VerifyOtpIn, db: Session = Depend
     return schemas.VerifyOtpOut(
         success=True,
         access_token=token,
-        user=mappers.user_out(user),
+        user=mappers.user_out(user, user.id),
         needs_profile=is_new_user,
     )

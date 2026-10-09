@@ -16,7 +16,7 @@ def list_contacts(user: models.User = Depends(get_current_user), db: Session = D
     for c in rows:
         target = db.get(models.User, c.contact_id)
         if target:
-            out.append(mappers.directory_user_out(target, True))
+            out.append(mappers.directory_user_out(target, True, user.id))
     out.sort(key=lambda u: u.name)
     return out
 
@@ -34,7 +34,7 @@ def add_contact(
     if not existing:
         db.add(models.Contact(owner_id=user.id, contact_id=body.user_id))
         db.commit()
-    return mappers.directory_user_out(target, True)
+    return mappers.directory_user_out(target, True, user.id)
 
 
 @router.delete("/{contact_id}", status_code=204)

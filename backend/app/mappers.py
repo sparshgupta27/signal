@@ -1,7 +1,8 @@
 from . import models, schemas
 
 
-def user_out(user: models.User) -> schemas.UserOut:
+def user_out(user: models.User, viewer_id: str | None = None) -> schemas.UserOut:
+    is_self = viewer_id is not None and viewer_id == user.id
     return schemas.UserOut(
         id=user.id,
         name=user.display_name,
@@ -10,12 +11,17 @@ def user_out(user: models.User) -> schemas.UserOut:
         avatar_url=user.avatar_url,
         about=user.about,
         is_online=user.is_online,
-        last_seen_at=user.last_seen_at,
+        # Hidden from everyone but the user themselves once they've turned
+        # "show last seen" off — not just a cosmetic client-side toggle.
+        last_seen_at=user.last_seen_at if (is_self or user.show_last_seen) else None,
+        show_last_seen=user.show_last_seen if is_self else None,
     )
 
 
-def directory_user_out(user: models.User, is_contact: bool) -> schemas.DirectoryUserOut:
-    base = user_out(user)
+def directory_user_out(
+    user: models.User, is_contact: bool, viewer_id: str | None = None
+) -> schemas.DirectoryUserOut:
+    base = user_out(user, viewer_id)
     return schemas.DirectoryUserOut(**base.model_dump(), is_contact=is_contact)
 
 

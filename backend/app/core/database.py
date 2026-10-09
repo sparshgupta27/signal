@@ -1,6 +1,6 @@
 from datetime import datetime, timezone
 
-from sqlalchemy import DateTime, create_engine, event
+from sqlalchemy import DateTime, create_engine, event, inspect, text
 from sqlalchemy.orm import DeclarativeBase, sessionmaker
 from sqlalchemy.types import TypeDecorator
 
@@ -57,3 +57,27 @@ def get_db():
         yield db
     finally:
         db.close()
+
+
+# No migration framework (Alembic) is warranted for a from-scratch schema —
+# but `create_all()` only creates *missing tables*, never adds a column to a
+# table that already exists. That's a real gap once a deployment's SQLite
+# file has persisted real data across deploys (unlike a fresh local DB,
+# which never hits this path since create_all() makes the column correctly
+# the first time). This is intentionally a column-adder only, not a general
+# migration system: list each new column here once, call it once in
+# lifespan, done.
+_PENDING_COLUMNS: list[tuple[str, str, str]] = [
+    ("users", "show_last_seen", "BOOLEAN DEFAULT 1"),
+]
+
+
+def ensure_columns() -> None:
+    inspector = inspect(engine)
+    with engine.begin() as conn:
+        for table, column, ddl_type in _PENDING_COLUMNS:
+            if not inspector.has_table(table):
+                continue
+            existing = {col["name"] for col in inspector.get_columns(table)}
+            if column not in existing:
+                conn.execute(text(f"ALTER TABLE {table} ADD COLUMN {column} {ddl_type}"))

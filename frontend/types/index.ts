@@ -13,6 +13,8 @@ export interface User {
   isOnline: boolean;
   /** ISO timestamp, or null while online / hidden by privacy settings. */
   lastSeenAt: string | null;
+  /** Only populated for the current user's own record — null on anyone else's. */
+  showLastSeen?: boolean | null;
 }
 
 export interface GroupMember {

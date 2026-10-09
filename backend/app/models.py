@@ -28,6 +28,7 @@ class User(Base):
     avatar_url: Mapped[str | None] = mapped_column(nullable=True)
     is_online: Mapped[bool] = mapped_column(default=False)
     last_seen_at: Mapped[datetime | None] = mapped_column(nullable=True)
+    show_last_seen: Mapped[bool] = mapped_column(default=True)
     created_at: Mapped[datetime] = mapped_column(default=utcnow)
 
     __table_args__ = (
