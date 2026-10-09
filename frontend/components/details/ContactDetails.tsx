@@ -88,7 +88,9 @@ export function ContactDetails({ conversation }: { conversation: Conversation })
         <p className="text-[13px] text-secondary">
           {presence.isOnline ? "Online" : formatLastSeenLabel(presence.lastSeenAt)}
         </p>
-        {user.about && <p className="text-[13.5px] text-secondary">{user.about}</p>}
+        <p className="text-[13.5px] text-secondary">
+          {user.about || "Hey there! I am using Signal Clone."}
+        </p>
       </div>
 
       <div className="mx-4 mb-4 flex divide-x divide-divider rounded-lg bg-sidebar">
