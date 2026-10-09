@@ -238,6 +238,83 @@ def seed_missing_demo_dms(db: Session, clock: _Clock | None = None) -> None:
     db.commit()
 
 
+_SEED_USER_IDS = {u["id"] for u in SEED_USERS}
+
+
+def seed_demo_data_for_user(db: Session, user_id: str) -> bool:
+    """On-demand version of what demo.01 gets for free at seed time, for any
+    *real* registered account — populates a couple of DMs and a group with
+    the seed users so a reviewer testing with their own number isn't stuck
+    looking at an empty chat list. Returns False (no-op) if the account is
+    itself one of the seed users, or already has this demo data."""
+    if user_id in _SEED_USER_IDS:
+        return False
+    if not db.get(models.User, user_id):
+        return False
+    if _dm_exists(db, user_id, "aarav"):
+        return False
+
+    db.flush()
+    clock = _Clock(datetime.now(timezone.utc))
+
+    _seed_direct(
+        db,
+        clock,
+        user_id,
+        "aarav",
+        [
+            ("aarav", "hey! saw you joined, welcome 👋", clock.ago(hours=3), True),
+            (user_id, "thanks! excited to try this out", clock.ago(hours=2, minutes=55), True),
+            ("aarav", "let me know if you have questions", clock.ago(hours=2, minutes=50), True),
+        ],
+    )
+
+    _seed_direct(
+        db,
+        clock,
+        user_id,
+        "priya",
+        [
+            ("priya", "are you coming to the trip planning call?", clock.ago(hours=1), True),
+            (user_id, "yep, see you there", clock.ago(minutes=55), True),
+            ("priya", "great, sending the invite now", clock.ago(minutes=50), False),
+        ],
+    )
+
+    group = models.Conversation(
+        id=_id("group"), type="group", name="Weekend Trip", created_by=user_id,
+        created_at=clock.ago(days=1),
+    )
+    db.add(group)
+    db.flush()
+
+    _add_message(
+        db, group, None, "", clock.ago(days=1),
+        msg_type="system", system_event={"action": "created", "actorId": user_id},
+    )
+    _add_message(db, group, user_id, "planning a weekend trip, who's in?", clock.ago(days=1) + timedelta(minutes=1))
+    m = _add_message(db, group, "aarav", "count me in!", clock.ago(hours=20))
+    _add_receipts(db, m, [user_id, "aarav", "priya", "rohan"], read=True)
+    m = _add_message(db, group, "rohan", "me too, where are we thinking?", clock.ago(hours=19))
+    _add_receipts(db, m, [user_id, "aarav", "priya", "rohan"], read=True)
+    m = _add_message(db, group, "priya", "booked a campsite for next saturday 🏕️", clock.ago(minutes=30))
+    _add_receipts(db, m, [user_id, "aarav", "priya", "rohan"], read=False)
+
+    for uid, role in ((user_id, "admin"), ("aarav", "member"), ("priya", "member"), ("rohan", "member")):
+        _add_participant(
+            db, group.id, uid, role=role,
+            last_read_at=clock.ago(minutes=40) if uid == user_id else clock.now,
+            joined_at=group.created_at,
+        )
+
+    for cid in ("aarav", "priya", "rohan"):
+        if not db.get(models.Contact, (user_id, cid)):
+            db.add(models.Contact(owner_id=user_id, contact_id=cid))
+
+    db.commit()
+    return True
+
+
 def run_seed(db: Session) -> None:
     if db.query(models.User).count() > 0:
         return

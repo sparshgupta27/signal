@@ -8,6 +8,7 @@ from .. import mappers, models, schemas
 from ..core.database import get_db
 from ..core.deps import get_current_user
 from ..directory import find_user_by_identifier
+from ..seeding import seed_demo_data_for_user
 
 router = APIRouter(prefix="/api/v1/users", tags=["users"])
 
@@ -52,6 +53,12 @@ def update_me(
     db.commit()
     db.refresh(user)
     return mappers.user_out(user, user.id)
+
+
+@router.post("/me/demo-data", response_model=schemas.DemoDataOut)
+def load_demo_data(user: models.User = Depends(get_current_user), db: Session = Depends(get_db)):
+    created = seed_demo_data_for_user(db, user.id)
+    return schemas.DemoDataOut(created=created)
 
 
 @router.get("", response_model=list[schemas.UserOut])

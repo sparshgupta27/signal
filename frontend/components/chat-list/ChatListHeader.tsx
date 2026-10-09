@@ -32,6 +32,20 @@ export function ChatListHeader() {
     toast("All chats marked as read");
   };
 
+  const loadDemoData = async () => {
+    try {
+      const { created } = await api.loadDemoData();
+      if (created) {
+        await queryClient.invalidateQueries({ queryKey: conversationsQueryKey });
+        toast("Demo chats and a group added");
+      } else {
+        toast("Demo data already loaded");
+      }
+    } catch {
+      toast("Couldn't load demo data");
+    }
+  };
+
   return (
     <div className="flex h-14 shrink-0 items-center justify-between px-4">
       <h1 className="text-[20px] font-semibold text-primary">Chats</h1>
@@ -50,7 +64,7 @@ export function ChatListHeader() {
             <MenuItem onSelect={() => setAddContactOpen(true)}>Add contact</MenuItem>
             <MenuItem onSelect={markAllRead}>Mark all read</MenuItem>
             <MenuSeparator />
-            <MenuItem disabled>Archived chats</MenuItem>
+            <MenuItem onSelect={loadDemoData}>Load demo data</MenuItem>
           </MenuContent>
         </Menu>
       </div>

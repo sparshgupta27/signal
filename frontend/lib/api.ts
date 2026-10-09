@@ -158,6 +158,10 @@ export function listAllUsers(): Promise<User[]> {
   return request("/api/v1/users");
 }
 
+export function loadDemoData(): Promise<{ created: boolean }> {
+  return request("/api/v1/users/me/demo-data", { method: "POST" });
+}
+
 // --- conversations ---------------------------------------------------------------
 
 export function sortConversations(list: Conversation[]): Conversation[] {

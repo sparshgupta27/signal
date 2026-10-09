@@ -56,6 +56,10 @@ class DirectoryUserOut(UserOut):
     is_contact: bool = False
 
 
+class DemoDataOut(CamelModel):
+    created: bool
+
+
 class UpdateMeIn(CamelModel):
     name: str | None = None
     about: str | None = None
