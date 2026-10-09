@@ -9,11 +9,15 @@ import { Menu, MenuContent, MenuItem, MenuSeparator, MenuTrigger } from "@/compo
 import { NewChatDialog } from "@/components/dialogs/NewChatDialog";
 import { AddContactDialog } from "@/components/dialogs/AddContactDialog";
 import { conversationsQueryKey, useConversations } from "@/hooks/useConversations";
+import { useUiStore } from "@/store/uiStore";
 import * as api from "@/lib/mock/api";
 
 export function ChatListHeader() {
-  const [composeOpen, setComposeOpen] = useState(false);
   const [addContactOpen, setAddContactOpen] = useState(false);
+  const composeOpen = useUiStore((s) => s.newChatOpen);
+  const composeMode = useUiStore((s) => s.newChatMode);
+  const openNewChat = useUiStore((s) => s.openNewChat);
+  const closeNewChat = useUiStore((s) => s.closeNewChat);
   const { conversations } = useConversations();
   const queryClient = useQueryClient();
 
@@ -32,7 +36,7 @@ export function ChatListHeader() {
     <div className="flex h-14 shrink-0 items-center justify-between px-4">
       <h1 className="text-[20px] font-semibold text-primary">Chats</h1>
       <div className="flex items-center gap-1">
-        <IconButton label="New chat" onClick={() => setComposeOpen(true)}>
+        <IconButton label="New chat" onClick={() => openNewChat("browse")}>
           <SquarePen size={20} strokeWidth={1.75} />
         </IconButton>
         <Menu>
@@ -42,7 +46,7 @@ export function ChatListHeader() {
             </IconButton>
           </MenuTrigger>
           <MenuContent align="end">
-            <MenuItem onSelect={() => setComposeOpen(true)}>New group</MenuItem>
+            <MenuItem onSelect={() => openNewChat("new-group")}>New group</MenuItem>
             <MenuItem onSelect={() => setAddContactOpen(true)}>Add contact</MenuItem>
             <MenuItem onSelect={markAllRead}>Mark all read</MenuItem>
             <MenuSeparator />
@@ -53,9 +57,10 @@ export function ChatListHeader() {
 
       <NewChatDialog
         open={composeOpen}
-        onOpenChange={setComposeOpen}
+        initialMode={composeMode}
+        onOpenChange={(next) => (next ? openNewChat(composeMode) : closeNewChat())}
         onRequestAddContact={() => {
-          setComposeOpen(false);
+          closeNewChat();
           setAddContactOpen(true);
         }}
       />

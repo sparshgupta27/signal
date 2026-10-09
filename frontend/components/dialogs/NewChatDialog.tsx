@@ -15,15 +15,32 @@ import { useContacts } from "@/hooks/useContacts";
 
 interface NewChatDialogProps {
   open: boolean;
+  initialMode?: "browse" | "new-group";
   onOpenChange: (open: boolean) => void;
   onRequestAddContact: () => void;
 }
 
-export function NewChatDialog({ open, onOpenChange, onRequestAddContact }: NewChatDialogProps) {
-  const [mode, setMode] = useState<"browse" | "new-group">("browse");
+export function NewChatDialog({
+  open,
+  initialMode = "browse",
+  onOpenChange,
+  onRequestAddContact,
+}: NewChatDialogProps) {
+  const [mode, setMode] = useState<"browse" | "new-group">(initialMode);
   const [query, setQuery] = useState("");
   const router = useRouter();
   const queryClient = useQueryClient();
+
+  // Radix keeps this content mounted across open/close toggles (that's what
+  // the close-reset below already relies on), so a plain useState(initialMode)
+  // wouldn't pick up a new initialMode on a later open — resync it here via
+  // React's "adjust state while rendering" pattern whenever the dialog flips
+  // from closed to open, e.g. Mod+Shift+N jumping straight to new-group.
+  const [wasOpen, setWasOpen] = useState(open);
+  if (open !== wasOpen) {
+    setWasOpen(open);
+    if (open) setMode(initialMode);
+  }
 
   const { contacts, isLoading } = useContacts();
 
