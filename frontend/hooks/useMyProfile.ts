@@ -1,6 +1,7 @@
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import * as api from "@/lib/api";
 import { getCurrentUser, updateSessionUser } from "@/lib/session";
+import { primeUser } from "@/lib/users";
 
 export const meQueryKey = ["me"] as const;
 
@@ -28,6 +29,11 @@ export function useUpdateMyProfile() {
   return async (patch: { name?: string; about?: string; avatarUrl?: string | null }) => {
     const user = await api.updateMe(patch);
     updateSessionUser(user);
+    // Keeps the shared user-directory cache (lib/users.ts) in sync too —
+    // anything rendering "you" generically alongside other members (e.g.
+    // a group's member list) reads through getUser(), not the session,
+    // and would otherwise stay stuck on whatever avatar was cached at login.
+    primeUser(user);
     queryClient.setQueryData(meQueryKey, user);
     return user;
   };
