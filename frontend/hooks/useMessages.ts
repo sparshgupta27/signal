@@ -42,9 +42,20 @@ export function useMessages(conversationId: string) {
         prev.map((m) => (m.id === data.messageId ? { ...m, status: data.status } : m))
       );
     });
+    const offDeleted = mockSocket.on("message.deleted", (data) => {
+      if (data.conversationId !== conversationId) return;
+      setMessages((prev) =>
+        prev.map((m) =>
+          m.id === data.messageId
+            ? { ...m, deletedAt: data.deletedAt, body: "", attachment: null }
+            : m
+        )
+      );
+    });
     return () => {
       offNew();
       offStatus();
+      offDeleted();
     };
   }, [conversationId]);
 

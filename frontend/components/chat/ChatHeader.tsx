@@ -8,6 +8,7 @@ import { Avatar } from "@/components/ui/Avatar";
 import { IconButton } from "@/components/ui/IconButton";
 import { Menu, MenuContent, MenuItem, MenuSeparator, MenuTrigger } from "@/components/ui/Menu";
 import { ComingSoonDialog } from "@/components/dialogs/ComingSoonDialog";
+import { DisappearingMessagesDialog } from "@/components/dialogs/DisappearingMessagesDialog";
 import {
   getConversationAvatarId,
   getConversationAvatarUrl,
@@ -23,12 +24,13 @@ import { useRouter } from "next/navigation";
 
 export function ChatHeader({ conversation }: { conversation: Conversation }) {
   const [comingSoon, setComingSoon] = useState<string | null>(null);
+  const [disappearingOpen, setDisappearingOpen] = useState(false);
   const title = getConversationTitle(conversation);
   const otherId = getOtherMemberId(conversation);
   const presence = usePresence(conversation.type === "direct" ? otherId : undefined);
   const typingUsers = useTypingUsers(conversation.id);
   const openDetailsPanel = useUiStore((s) => s.openDetailsPanel);
-  const { toggleMute } = useConversationActions();
+  const { toggleMute, setDisappearing } = useConversationActions();
   const isMobile = useIsMobile();
   const router = useRouter();
 
@@ -87,9 +89,7 @@ export function ChatHeader({ conversation }: { conversation: Conversation }) {
             </IconButton>
           </MenuTrigger>
           <MenuContent align="end">
-            <MenuItem onSelect={() => toast("Disappearing messages are coming soon")}>
-              Disappearing messages
-            </MenuItem>
+            <MenuItem onSelect={() => setDisappearingOpen(true)}>Disappearing messages</MenuItem>
             <MenuItem onSelect={() => setComingSoon("Safety number")}>View safety number</MenuItem>
             <MenuItem onSelect={() => toggleMute(conversation, !conversation.isMuted)}>
               {conversation.isMuted ? "Unmute" : "Mute"}
@@ -106,6 +106,13 @@ export function ChatHeader({ conversation }: { conversation: Conversation }) {
         open={comingSoon !== null}
         onOpenChange={(open) => !open && setComingSoon(null)}
         title={comingSoon ?? ""}
+      />
+
+      <DisappearingMessagesDialog
+        open={disappearingOpen}
+        onOpenChange={setDisappearingOpen}
+        currentSeconds={conversation.disappearingSeconds}
+        onConfirm={(seconds) => setDisappearing(conversation.id, seconds)}
       />
     </div>
   );

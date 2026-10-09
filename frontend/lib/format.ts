@@ -47,3 +47,13 @@ export function formatFileSize(bytes: number): string {
   if (bytes < 1024 * 1024) return `${(bytes / 1024).toFixed(1)} KB`;
   return `${(bytes / (1024 * 1024)).toFixed(1)} MB`;
 }
+
+/** Signal-style disappearing-message timer label, e.g. "5 minutes", "1 week". */
+export function formatDisappearingDuration(seconds: number | null | undefined): string {
+  if (!seconds) return "Off";
+  if (seconds < 60) return `${seconds} seconds`;
+  if (seconds < 3600) return `${Math.round(seconds / 60)} minute${seconds >= 120 ? "s" : ""}`;
+  if (seconds < 86400) return `${Math.round(seconds / 3600)} hour${seconds >= 7200 ? "s" : ""}`;
+  if (seconds < 604800) return `${Math.round(seconds / 86400)} day${seconds >= 172800 ? "s" : ""}`;
+  return `${Math.round(seconds / 604800)} week${seconds >= 1_209_600 ? "s" : ""}`;
+}

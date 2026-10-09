@@ -3,6 +3,8 @@ import { useQueryClient } from "@tanstack/react-query";
 import { toast } from "sonner";
 import type { Conversation } from "@/types";
 import * as api from "@/lib/mock/api";
+import { mockSocket } from "@/lib/mock/socket";
+import { formatDisappearingDuration } from "@/lib/format";
 import { conversationsQueryKey } from "./useConversations";
 
 /** Chat-list row actions (pin, mute, read state, archive, delete). */
@@ -80,5 +82,19 @@ export function useConversationActions() {
     [removeFromList]
   );
 
-  return { togglePin, toggleMute, toggleRead, archive, remove };
+  // Routed through the socket (not api.setConversationFlags) since setting a
+  // timer also posts a system message into the open thread — the socket is
+  // the one place that can touch both the conversation and message stores
+  // and emit both events; useSocketBridge patches conversation.updated into
+  // this same query cache, so no local patch() call is needed here.
+  const setDisappearing = useCallback((conversationId: string, seconds: number | null) => {
+    mockSocket.setDisappearingSeconds(conversationId, seconds);
+    toast(
+      seconds
+        ? `Disappearing messages set to ${formatDisappearingDuration(seconds)}`
+        : "Disappearing messages turned off"
+    );
+  }, []);
+
+  return { togglePin, toggleMute, toggleRead, archive, remove, setDisappearing };
 }

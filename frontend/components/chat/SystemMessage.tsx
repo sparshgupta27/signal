@@ -1,5 +1,6 @@
 import type { Message } from "@/types";
 import { CURRENT_USER_ID, getUser } from "@/lib/mock/data";
+import { formatDisappearingDuration } from "@/lib/format";
 
 function nameOf(id: string | undefined): string {
   if (!id) return "Someone";
@@ -33,6 +34,12 @@ export function systemMessageText(message: Message): string {
       return `${actor} removed ${target} as admin`;
     case "name_changed":
       return `${actor} changed the group name to "${event.value}"`;
+    case "disappearing_changed": {
+      const seconds = event.value ? Number(event.value) : 0;
+      return seconds
+        ? `${actor} set the disappearing message timer to ${formatDisappearingDuration(seconds)}`
+        : `${actor} turned off disappearing messages`;
+    }
     default:
       return message.body;
   }

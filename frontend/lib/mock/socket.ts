@@ -1,4 +1,4 @@
-import type { Message, MessageAttachment } from "@/types";
+import type { Conversation, Message, MessageAttachment } from "@/types";
 import type { WsEventData, WsEventType } from "@/types/ws";
 import { CURRENT_USER_ID, users } from "./data";
 import * as store from "./store";
@@ -67,6 +67,7 @@ class MockSocket {
     const conversation = store.touchConversation(conversationId, message);
     this.emit("message.new", { message });
     if (conversation) this.emit("conversation.updated", { conversation });
+    this.scheduleDisappearIfNeeded(conversationId, message.id);
 
     this.after(300, () => {
       store.setMessageStatus(conversationId, message.id, "sent");
@@ -106,6 +107,56 @@ class MockSocket {
   markRead(conversationId: string) {
     const conversation = store.clearUnread(conversationId);
     if (conversation) this.emit("conversation.updated", { conversation });
+  }
+
+  /** If the conversation has a disappearing-message timer set, schedules this message's expiry. */
+  private scheduleDisappearIfNeeded(conversationId: string, messageId: string) {
+    const seconds = store.getConversation(conversationId)?.disappearingSeconds;
+    if (!seconds) return;
+    this.after(seconds * 1000, () => {
+      const updated = store.updateMessage(conversationId, messageId, {
+        deletedAt: new Date().toISOString(),
+        body: "",
+        attachment: null,
+      });
+      if (updated) {
+        this.emit("message.deleted", {
+          messageId,
+          conversationId,
+          deletedAt: updated.deletedAt!,
+        });
+      }
+    });
+  }
+
+  /** Sets (or clears) a conversation's disappearing-message timer and posts the Signal-style system note. */
+  setDisappearingSeconds(conversationId: string, seconds: number | null) {
+    const conversation = store.getConversation(conversationId);
+    if (!conversation) return;
+    const updated: Conversation = { ...conversation, disappearingSeconds: seconds };
+    store.putConversation(updated);
+
+    const now = new Date().toISOString();
+    const sysMsg: Message = {
+      id: `${conversationId}-disappearing-${Date.now()}`,
+      clientId: `${conversationId}-disappearing-${Date.now()}`,
+      conversationId,
+      senderId: null,
+      type: "system",
+      body: "",
+      reactions: [],
+      status: "sent",
+      createdAt: now,
+      systemEvent: {
+        action: "disappearing_changed",
+        actorId: CURRENT_USER_ID,
+        value: seconds ? String(seconds) : "0",
+      },
+    };
+    store.pushMessage(sysMsg);
+    const touched = store.touchConversation(conversationId, sysMsg) ?? updated;
+    this.emit("message.new", { message: sysMsg });
+    this.emit("conversation.updated", { conversation: touched });
   }
 
   /** Starts the background "other people are using the app too" simulation. Idempotent. */
@@ -159,6 +210,7 @@ class MockSocket {
         const updated = store.incrementUnread(conversation.id, 1);
         this.emit("message.new", { message });
         if (updated) this.emit("conversation.updated", { conversation: updated });
+        this.scheduleDisappearIfNeeded(conversation.id, message.id);
       });
     };
 

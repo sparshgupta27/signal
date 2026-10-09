@@ -11,8 +11,9 @@ import { usePresence } from "@/hooks/usePresence";
 import { useConversationActions } from "@/hooks/useConversationActions";
 import { useContactActions } from "@/hooks/useContactActions";
 import { useIsContact } from "@/hooks/useContacts";
-import { formatLastSeenLabel } from "@/lib/format";
+import { formatDisappearingDuration, formatLastSeenLabel } from "@/lib/format";
 import { ComingSoonDialog } from "@/components/dialogs/ComingSoonDialog";
+import { DisappearingMessagesDialog } from "@/components/dialogs/DisappearingMessagesDialog";
 
 function ActionTile({
   icon: Icon,
@@ -65,10 +66,11 @@ function Row({
 
 export function ContactDetails({ conversation }: { conversation: Conversation }) {
   const [comingSoon, setComingSoon] = useState<string | null>(null);
+  const [disappearingOpen, setDisappearingOpen] = useState(false);
   const otherId = getOtherMemberId(conversation);
   const user = getUser(otherId);
   const presence = usePresence(otherId);
-  const { toggleMute } = useConversationActions();
+  const { toggleMute, setDisappearing } = useConversationActions();
   const { addContact, removeContact } = useContactActions();
   const isContact = useIsContact(otherId);
 
@@ -104,7 +106,12 @@ export function ContactDetails({ conversation }: { conversation: Conversation })
       </SectionCard>
 
       <SectionCard>
-        <Row icon={Timer} label="Disappearing messages" value="Off" onClick={() => setComingSoon("Disappearing messages")} />
+        <Row
+          icon={Timer}
+          label="Disappearing messages"
+          value={formatDisappearingDuration(conversation.disappearingSeconds)}
+          onClick={() => setDisappearingOpen(true)}
+        />
         <Row icon={Image} label="Shared media" value="None yet" onClick={() => setComingSoon("Shared media")} />
       </SectionCard>
 
@@ -126,6 +133,13 @@ export function ContactDetails({ conversation }: { conversation: Conversation })
         open={comingSoon !== null}
         onOpenChange={(open) => !open && setComingSoon(null)}
         title={comingSoon ?? ""}
+      />
+
+      <DisappearingMessagesDialog
+        open={disappearingOpen}
+        onOpenChange={setDisappearingOpen}
+        currentSeconds={conversation.disappearingSeconds}
+        onConfirm={(seconds) => setDisappearing(conversation.id, seconds)}
       />
     </div>
   );
