@@ -39,8 +39,18 @@ export function CameraCaptureDialog({ open, onOpenChange, onCapture }: CameraCap
         streamRef.current = stream;
         if (videoRef.current) videoRef.current.srcObject = stream;
       })
-      .catch(() => {
-        if (!cancelled) setError("Couldn't access your camera — check your browser's camera permission.");
+      .catch((err: unknown) => {
+        if (cancelled) return;
+        const name = err instanceof DOMException ? err.name : "";
+        const message =
+          name === "NotAllowedError"
+            ? "Camera access is blocked for this site — click the camera icon in your address bar, allow it, then reload the page."
+            : name === "NotFoundError"
+              ? "No camera was found on this device."
+              : name === "NotReadableError"
+                ? "Your camera is in use by another app (another tab, Zoom, Teams, etc.) — close it and try again."
+                : "Couldn't access your camera — check your browser's camera permission.";
+        setError(message);
       });
 
     return () => {
