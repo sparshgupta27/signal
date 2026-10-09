@@ -98,7 +98,7 @@ export function MessageBubble({
         </div>
       )}
 
-      <div className={cn("flex max-w-[65%] flex-col", isOwn ? "items-end" : "items-start")}>
+      <div className={cn("flex max-w-[85%] flex-col md:max-w-[65%]", isOwn ? "items-end" : "items-start")}>
         <div className="relative flex items-center gap-1.5">
           {isOwn && <HoverToolbar message={message} onReply={onReply} onReact={onReact} align="left" />}
 

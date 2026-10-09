@@ -18,13 +18,18 @@ const SECTIONS = [
   { slug: "help", label: "Help", icon: HelpCircle },
 ];
 
-export function SettingsNav() {
+export function SettingsNav({ fullWidth = false }: { fullWidth?: boolean }) {
   const pathname = usePathname();
   const router = useRouter();
   const [logoutOpen, setLogoutOpen] = useState(false);
 
   return (
-    <div className="flex w-[340px] shrink-0 flex-col border-r border-divider bg-sidebar">
+    <div
+      className={cn(
+        "flex shrink-0 flex-col bg-sidebar",
+        fullWidth ? "w-full" : "w-[340px] border-r border-divider"
+      )}
+    >
       <div className="flex h-14 items-center px-4">
         <h1 className="text-[20px] font-semibold text-primary">Settings</h1>
       </div>
