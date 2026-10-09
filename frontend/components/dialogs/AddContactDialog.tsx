@@ -5,12 +5,12 @@ import { useRouter } from "next/navigation";
 import { useQueryClient } from "@tanstack/react-query";
 import { Search, UserX } from "lucide-react";
 import type { Conversation } from "@/types";
-import type { DirectoryUser } from "@/lib/mock/api";
+import type { DirectoryUser } from "@/lib/api";
 import { Avatar } from "@/components/ui/Avatar";
 import { Button } from "@/components/ui/Button";
 import { Input } from "@/components/ui/Input";
 import { Dialog, DialogContent, DialogTitle } from "@/components/ui/Dialog";
-import * as api from "@/lib/mock/api";
+import * as api from "@/lib/api";
 import { conversationsQueryKey } from "@/hooks/useConversations";
 import { useContactActions } from "@/hooks/useContactActions";
 

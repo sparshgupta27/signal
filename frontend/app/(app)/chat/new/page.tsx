@@ -4,7 +4,7 @@ import { Suspense, useEffect } from "react";
 import { useRouter, useSearchParams } from "next/navigation";
 import { useQueryClient } from "@tanstack/react-query";
 import type { Conversation } from "@/types";
-import * as api from "@/lib/mock/api";
+import * as api from "@/lib/api";
 import { conversationsQueryKey } from "@/hooks/useConversations";
 
 function NewChatRedirect() {

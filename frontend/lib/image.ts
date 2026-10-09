@@ -42,6 +42,15 @@ export function fileToChatImage(
   });
 }
 
+/** Converts a data URL back to a File — used to upload the client-resized
+ * chat image instead of the original (bandwidth, and the server trusts the
+ * client-computed width/height that came from this same resize). */
+export async function dataUrlToFile(dataUrl: string, filename: string, mimeType: string): Promise<File> {
+  const res = await fetch(dataUrl);
+  const blob = await res.blob();
+  return new File([blob], filename, { type: mimeType });
+}
+
 /** Downscales an uploaded image to a small square-ish JPEG data URL, keeping localStorage light. */
 export function fileToResizedDataUrl(file: File, maxSize = 256, quality = 0.85): Promise<string> {
   return new Promise((resolve, reject) => {

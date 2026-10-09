@@ -3,7 +3,8 @@
 import { useEffect, useMemo, useRef, useState } from "react";
 import { ArrowDown, Loader2 } from "lucide-react";
 import type { Conversation, Message } from "@/types";
-import { CURRENT_USER_ID, getUser } from "@/lib/mock/data";
+import { getCurrentUserId } from "@/lib/session";
+import { getUser } from "@/lib/users";
 import { isSameCalendarDay, minutesBetween } from "@/lib/format";
 import { EncryptionNotice } from "./EncryptionNotice";
 import { DateDivider } from "./DateDivider";
@@ -62,7 +63,7 @@ function buildThreadItems(messages: Message[], isGroup: boolean): ThreadItem[] {
       isSameCalendarDay(next.createdAt, message.createdAt) &&
       minutesBetween(next.createdAt, message.createdAt) <= GROUP_WINDOW_MINUTES;
 
-    const isOwn = message.senderId === CURRENT_USER_ID;
+    const isOwn = message.senderId === getCurrentUserId();
 
     items.push({
       kind: "bubble",
@@ -132,7 +133,7 @@ export function MessageList({
     if (!grew) return;
 
     const lastMessage = messages[messages.length - 1];
-    const isMine = lastMessage?.senderId === CURRENT_USER_ID;
+    const isMine = lastMessage?.senderId === getCurrentUserId();
 
     if (isAtBottom || isMine) {
       requestAnimationFrame(() => {

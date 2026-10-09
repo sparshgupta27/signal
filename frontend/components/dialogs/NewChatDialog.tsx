@@ -9,7 +9,7 @@ import { Avatar } from "@/components/ui/Avatar";
 import { Input } from "@/components/ui/Input";
 import { Dialog, DialogContent, DialogTitle } from "@/components/ui/Dialog";
 import { NewGroupWizard } from "./NewGroupWizard";
-import * as api from "@/lib/mock/api";
+import * as api from "@/lib/api";
 import { conversationsQueryKey } from "@/hooks/useConversations";
 import { useContacts } from "@/hooks/useContacts";
 

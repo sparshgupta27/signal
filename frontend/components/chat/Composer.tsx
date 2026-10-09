@@ -2,13 +2,14 @@
 
 import { useEffect, useRef, useState } from "react";
 import { toast } from "sonner";
-import { File as FileIcon, Mic, Paperclip, Send, Smile, X } from "lucide-react";
+import { File as FileIcon, Loader2, Mic, Paperclip, Send, Smile, X } from "lucide-react";
 import type { Message, MessageAttachment } from "@/types";
 import { IconButton } from "@/components/ui/IconButton";
 import { Menu, MenuContent, MenuItem, MenuTrigger } from "@/components/ui/Menu";
 import { senderDisplayName } from "@/lib/conversationDisplay";
 import { formatFileSize } from "@/lib/format";
-import { fileToChatImage, readFileAsDataUrl } from "@/lib/image";
+import { dataUrlToFile, fileToChatImage } from "@/lib/image";
+import * as api from "@/lib/api";
 import { useUiStore } from "@/store/uiStore";
 import { useTyping } from "@/hooks/useTyping";
 import { useSendMessage } from "@/hooks/useSendMessage";
@@ -16,6 +17,8 @@ import { cn } from "@/lib/cn";
 
 const QUICK_EMOJI = ["😀", "😂", "❤️", "👍", "🙏", "😮", "😢", "🔥", "🎉", "👀", "💯", "😅"];
 const MAX_ATTACHMENT_BYTES = 8 * 1024 * 1024;
+
+type UploadedAttachment = MessageAttachment & { id: string };
 
 interface ComposerProps {
   conversationId: string;
@@ -30,7 +33,8 @@ export function Composer({ conversationId, canSend, replyTo, onCancelReply }: Co
   // chats never needs an effect to resync anything.
   const value = useUiStore((s) => s.drafts[conversationId] ?? "");
   const setDraft = useUiStore((s) => s.setDraft);
-  const [pendingAttachment, setPendingAttachment] = useState<MessageAttachment | null>(null);
+  const [pendingAttachment, setPendingAttachment] = useState<UploadedAttachment | null>(null);
+  const [uploading, setUploading] = useState(false);
   // Resetting a half-picked attachment when the chat changes, via React's
   // "adjust state while rendering" pattern — not an effect, since a half-
   // picked photo for one conversation has no business in the next one and
@@ -39,6 +43,7 @@ export function Composer({ conversationId, canSend, replyTo, onCancelReply }: Co
   if (conversationId !== attachmentConversationId) {
     setAttachmentConversationId(conversationId);
     setPendingAttachment(null);
+    setUploading(false);
   }
   const textareaRef = useRef<HTMLTextAreaElement>(null);
   const imageInputRef = useRef<HTMLInputElement>(null);
@@ -53,11 +58,15 @@ export function Composer({ conversationId, canSend, replyTo, onCancelReply }: Co
     el.style.height = `${Math.min(el.scrollHeight, 150)}px`;
   }, [value]);
 
-  const canSubmit = !!value.trim() || !!pendingAttachment;
+  const canSubmit = (!!value.trim() || !!pendingAttachment) && !uploading;
 
   const handleSend = () => {
     if (!canSubmit) return;
-    send(value, { replyToId: replyTo?.id, attachment: pendingAttachment });
+    send(value, {
+      replyToId: replyTo?.id,
+      attachmentId: pendingAttachment?.id,
+      attachmentPreview: pendingAttachment,
+    });
     setDraft(conversationId, "");
     setPendingAttachment(null);
     onCancelReply();
@@ -98,11 +107,16 @@ export function Composer({ conversationId, canSend, replyTo, onCancelReply }: Co
       toast("Image is too large (max 8MB)");
       return;
     }
+    setUploading(true);
     try {
       const { url, width, height } = await fileToChatImage(file);
-      setPendingAttachment({ kind: "image", url, name: file.name, size: file.size, mimeType: file.type, width, height });
+      const resized = await dataUrlToFile(url, file.name, "image/jpeg");
+      const uploaded = await api.uploadAttachment(resized, { width, height });
+      setPendingAttachment(uploaded);
     } catch {
-      toast("Couldn't read that image");
+      toast("Couldn't upload that image");
+    } finally {
+      setUploading(false);
     }
   };
 
@@ -114,17 +128,14 @@ export function Composer({ conversationId, canSend, replyTo, onCancelReply }: Co
       toast("File is too large (max 8MB)");
       return;
     }
+    setUploading(true);
     try {
-      const url = await readFileAsDataUrl(file);
-      setPendingAttachment({
-        kind: "file",
-        url,
-        name: file.name,
-        size: file.size,
-        mimeType: file.type || "application/octet-stream",
-      });
+      const uploaded = await api.uploadAttachment(file);
+      setPendingAttachment(uploaded);
     } catch {
-      toast("Couldn't read that file");
+      toast("Couldn't upload that file");
+    } finally {
+      setUploading(false);
     }
   };
 
@@ -162,10 +173,17 @@ export function Composer({ conversationId, canSend, replyTo, onCancelReply }: Co
         </div>
       )}
 
+      {uploading && !pendingAttachment && (
+        <div className="flex items-center gap-2 border-b border-divider bg-sidebar px-4 py-2">
+          <Loader2 size={16} className="shrink-0 animate-spin text-secondary" />
+          <span className="text-[12.5px] text-secondary">Uploading…</span>
+        </div>
+      )}
+
       {pendingAttachment && (
         <div className="flex items-center gap-2 border-b border-divider bg-sidebar px-4 py-2">
           {pendingAttachment.kind === "image" ? (
-            // eslint-disable-next-line @next/next/no-img-element -- client-only data URL, not an optimizable asset
+            // eslint-disable-next-line @next/next/no-img-element -- authenticated remote URL, not an optimizable asset
             <img src={pendingAttachment.url} alt="" className="h-10 w-10 rounded-md object-cover" />
           ) : (
             <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-md bg-row-hover text-secondary">
@@ -190,7 +208,7 @@ export function Composer({ conversationId, canSend, replyTo, onCancelReply }: Co
       <div className="flex items-end gap-1.5 p-3">
         <Menu>
           <MenuTrigger asChild>
-            <IconButton label="Attach" showTooltip={false}>
+            <IconButton label="Attach" showTooltip={false} disabled={uploading}>
               <Paperclip size={20} strokeWidth={1.75} />
             </IconButton>
           </MenuTrigger>

@@ -10,7 +10,8 @@ import { Menu, MenuContent, MenuItem, MenuTrigger } from "@/components/ui/Menu";
 import { ConfirmDialog } from "@/components/dialogs/ConfirmDialog";
 import { AddMembersDialog } from "@/components/dialogs/AddMembersDialog";
 import { DisappearingMessagesDialog } from "@/components/dialogs/DisappearingMessagesDialog";
-import { CURRENT_USER_ID, getUser } from "@/lib/mock/data";
+import { getCurrentUserId } from "@/lib/session";
+import { getUser } from "@/lib/users";
 import { formatDisappearingDuration } from "@/lib/format";
 import { useConversationActions } from "@/hooks/useConversationActions";
 import { useGroupActions } from "@/hooks/useGroupActions";
@@ -47,7 +48,7 @@ export function GroupDetails({ conversation }: { conversation: Conversation }) {
   const { removeMember, setMemberRole } = useGroupActions();
 
   const activeMembers = (conversation.members ?? []).filter((m) => !m.leftAt);
-  const me = activeMembers.find((m) => m.userId === CURRENT_USER_ID);
+  const me = activeMembers.find((m) => m.userId === getCurrentUserId());
   const isAdmin = me?.role === "admin";
 
   return (
@@ -105,7 +106,7 @@ export function GroupDetails({ conversation }: { conversation: Conversation }) {
         {activeMembers.map((member) => {
           const user = getUser(member.userId);
           if (!user) return null;
-          const isSelf = member.userId === CURRENT_USER_ID;
+          const isSelf = member.userId === getCurrentUserId();
           return (
             <div key={member.userId} className="group/member flex items-center gap-3 px-3 py-2.5">
               <Avatar id={user.id} name={user.name} size={36} />
@@ -185,7 +186,8 @@ export function GroupDetails({ conversation }: { conversation: Conversation }) {
         description="You won't be able to send or receive messages unless someone adds you back."
         confirmLabel="Leave"
         onConfirm={() => {
-          removeMember(conversation.id, CURRENT_USER_ID);
+          const myId = getCurrentUserId();
+          if (myId) removeMember(conversation.id, myId);
           router.push("/");
         }}
       />

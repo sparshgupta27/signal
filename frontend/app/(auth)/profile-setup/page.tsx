@@ -6,8 +6,8 @@ import { Button } from "@/components/ui/Button";
 import { Input } from "@/components/ui/Input";
 import { AuthShell } from "@/components/auth/AuthShell";
 import { AvatarPicker } from "@/components/profile/AvatarPicker";
-import { CURRENT_USER_ID } from "@/lib/mock/data";
-import * as auth from "@/lib/mock/auth";
+import { getCurrentUserId, markOnboarded, updateSessionUser } from "@/lib/session";
+import * as api from "@/lib/api";
 
 export default function ProfileSetupPage() {
   const router = useRouter();
@@ -22,7 +22,9 @@ export default function ProfileSetupPage() {
   const handleNext = async () => {
     if (!isValid || saving) return;
     setSaving(true);
-    await auth.completeProfile({ name: fullName, avatarUrl });
+    const user = await api.updateMe({ name: fullName, avatarUrl });
+    updateSessionUser(user);
+    markOnboarded();
     router.push("/");
   };
 
@@ -36,7 +38,7 @@ export default function ProfileSetupPage() {
       </div>
 
       <AvatarPicker
-        id={CURRENT_USER_ID}
+        id={getCurrentUserId() ?? "me"}
         name={fullName || "?"}
         avatarUrl={avatarUrl}
         onChange={setAvatarUrl}

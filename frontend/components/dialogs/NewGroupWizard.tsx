@@ -7,7 +7,7 @@ import { ArrowLeft, Check, Search, X } from "lucide-react";
 import { Avatar } from "@/components/ui/Avatar";
 import { Button } from "@/components/ui/Button";
 import { Input } from "@/components/ui/Input";
-import * as api from "@/lib/mock/api";
+import * as api from "@/lib/api";
 import { conversationsQueryKey } from "@/hooks/useConversations";
 import type { Conversation } from "@/types";
 

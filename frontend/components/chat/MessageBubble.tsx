@@ -9,7 +9,8 @@ import { StatusIcon } from "./StatusIcon";
 import { cn } from "@/lib/cn";
 import { formatBubbleTime, formatFileSize } from "@/lib/format";
 import { senderDisplayName } from "@/lib/conversationDisplay";
-import { getUser } from "@/lib/mock/data";
+import { getCurrentUserId } from "@/lib/session";
+import { getUser } from "@/lib/users";
 import {
   Menu,
   MenuContent,
@@ -327,7 +328,7 @@ function groupReactions(reactions: Message["reactions"]) {
   for (const r of reactions) {
     const entry = map.get(r.emoji) ?? { emoji: r.emoji, count: 0, mine: false };
     entry.count += 1;
-    if (r.userId === "demo") entry.mine = true;
+    if (r.userId === getCurrentUserId()) entry.mine = true;
     map.set(r.emoji, entry);
   }
   return Array.from(map.values());

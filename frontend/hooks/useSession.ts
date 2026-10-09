@@ -3,7 +3,7 @@ import {
   getServerSessionSnapshot,
   getSessionSnapshot,
   subscribeSession,
-} from "@/lib/mock/auth";
+} from "@/lib/session";
 
 export function useSession() {
   return useSyncExternalStore(subscribeSession, getSessionSnapshot, getServerSessionSnapshot);

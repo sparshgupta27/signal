@@ -10,10 +10,10 @@ import { Tooltip } from "@/components/ui/Tooltip";
 import { Menu, MenuContent, MenuItem, MenuLabel, MenuSeparator, MenuTrigger } from "@/components/ui/Menu";
 import { ConfirmDialog } from "@/components/dialogs/ConfirmDialog";
 import { cn } from "@/lib/cn";
-import { CURRENT_USER_ID, getUser } from "@/lib/mock/data";
-import * as auth from "@/lib/mock/auth";
+import { clearSession } from "@/lib/session";
 import { useConversations } from "@/hooks/useConversations";
 import { useMyProfile } from "@/hooks/useMyProfile";
+import { useSession } from "@/hooks/useSession";
 import { useUiStore } from "@/store/uiStore";
 
 const NAV_ITEMS = [
@@ -25,7 +25,7 @@ const NAV_ITEMS = [
 export function NavRail() {
   const pathname = usePathname();
   const router = useRouter();
-  const me = getUser(CURRENT_USER_ID)!;
+  const session = useSession();
   const profile = useMyProfile();
   const { conversations } = useConversations();
   const totalUnread = conversations.reduce((sum, c) => sum + (c.isMuted ? 0 : c.unreadCount), 0);
@@ -81,12 +81,12 @@ export function NavRail() {
               className="rounded-full outline-none transition-transform duration-[120ms] ease-signal active:scale-95 focus-visible:outline-2 focus-visible:outline-accent focus-visible:outline-offset-2"
               aria-label="Profile menu"
             >
-              <Avatar id={me.id} name={profile.name} src={profile.avatarUrl} size={32} />
+              <Avatar id={session?.user.id ?? "me"} name={profile.name} src={profile.avatarUrl} size={32} />
             </button>
           </MenuTrigger>
           <MenuContent side="right" align="end">
             <MenuLabel>{profile.name}</MenuLabel>
-            <div className="px-2 text-[12.5px] text-secondary">{me.phone}</div>
+            <div className="px-2 text-[12.5px] text-secondary">{session?.user.phone}</div>
             {profile.about && (
               <div className="px-2 pb-1 text-[12.5px] text-secondary">{profile.about}</div>
             )}
@@ -109,7 +109,7 @@ export function NavRail() {
         description="You can always sign back in with your phone number or username."
         confirmLabel="Log out"
         onConfirm={() => {
-          auth.logout();
+          clearSession();
           router.replace("/welcome");
         }}
       />

@@ -12,7 +12,7 @@ export function AppProviders({ children }: { children: React.ReactNode }) {
         <TooltipProvider>
           {children}
           <Toaster
-            position="bottom-right"
+            position="top-right"
             toastOptions={{
               classNames: {
                 toast:

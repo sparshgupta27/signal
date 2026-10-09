@@ -1,8 +1,9 @@
 import type { Conversation, Message } from "@/types";
-import { CURRENT_USER_ID, getUser } from "@/lib/mock/data";
+import { getCurrentUserId } from "@/lib/session";
+import { getUser } from "@/lib/users";
 
 export function getOtherMemberId(conversation: Conversation): string | undefined {
-  return conversation.memberIds.find((id) => id !== CURRENT_USER_ID);
+  return conversation.memberIds.find((id) => id !== getCurrentUserId());
 }
 
 export function getConversationTitle(conversation: Conversation): string {
@@ -31,7 +32,7 @@ export function getPreviewText(conversation: Conversation): string {
   if (last.type === "system") return "Group updated";
 
   const prefix =
-    last.senderId === CURRENT_USER_ID
+    last.senderId === getCurrentUserId()
       ? "You: "
       : conversation.type === "group"
         ? `${getUser(last.senderId)?.name.split(" ")[0] ?? "Someone"}: `
@@ -48,6 +49,6 @@ export function getPreviewText(conversation: Conversation): string {
 }
 
 export function senderDisplayName(message: Message): string {
-  if (message.senderId === CURRENT_USER_ID) return "You";
+  if (message.senderId === getCurrentUserId()) return "You";
   return getUser(message.senderId)?.name ?? "Unknown";
 }

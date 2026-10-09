@@ -17,9 +17,8 @@ import {
 import { ThemePicker } from "@/components/settings/ThemePicker";
 import { AvatarPicker } from "@/components/profile/AvatarPicker";
 import { SETTINGS_SECTIONS } from "@/components/settings/SettingsNav";
-import { CURRENT_USER_ID, getUser } from "@/lib/mock/data";
-import { useMyProfile } from "@/hooks/useMyProfile";
-import { updateMyProfile } from "@/lib/mock/profile";
+import { useMyProfile, useUpdateMyProfile } from "@/hooks/useMyProfile";
+import { useSession } from "@/hooks/useSession";
 
 const STATUS_SUGGESTIONS = ["Available", "Busy", "At work", "At the gym", "Sleeping", "In a meeting"];
 
@@ -29,8 +28,11 @@ export default function SettingsSectionPage({
   params: Promise<{ section: string }>;
 }) {
   const { section } = use(params);
-  const me = getUser(CURRENT_USER_ID)!;
+  const session = useSession();
+  const me = session?.user;
   const profile = useMyProfile();
+  const updateProfile = useUpdateMyProfile();
+  const [saving, setSaving] = useState(false);
 
   // Lazy-initialized from the live profile once: this is an edit draft that
   // only commits on Save, so it intentionally doesn't resync if the stored
@@ -39,11 +41,17 @@ export default function SettingsSectionPage({
   const [about, setAbout] = useState(() => profile.about);
   const [avatarUrl, setAvatarUrl] = useState(() => profile.avatarUrl);
 
-  const handleSave = () => {
+  const handleSave = async () => {
+    if (saving) return;
     const nextName = name.trim() || profile.name;
-    updateMyProfile({ name: nextName, about: about.trim(), avatarUrl });
-    setName(nextName);
-    toast("Profile updated");
+    setSaving(true);
+    try {
+      await updateProfile({ name: nextName, about: about.trim(), avatarUrl });
+      setName(nextName);
+      toast("Profile updated");
+    } finally {
+      setSaving(false);
+    }
   };
 
   const [enterToSend, setEnterToSend] = useState(true);
@@ -67,7 +75,13 @@ export default function SettingsSectionPage({
         <>
           <SettingsSectionTitle>Profile</SettingsSectionTitle>
           <div className="mb-6 flex flex-col items-center gap-3">
-            <AvatarPicker id={me.id} name={name || me.name} avatarUrl={avatarUrl} onChange={setAvatarUrl} size={96} />
+            <AvatarPicker
+              id={me?.id ?? "me"}
+              name={name || me?.name || "?"}
+              avatarUrl={avatarUrl}
+              onChange={setAvatarUrl}
+              size={96}
+            />
           </div>
           <SettingsGroupLabel>Name &amp; about</SettingsGroupLabel>
           <div className="space-y-3">
@@ -99,21 +113,21 @@ export default function SettingsSectionPage({
                 <button
                   type="button"
                   onClick={() => {
-                    navigator.clipboard.writeText(`@${me.username}`);
+                    navigator.clipboard.writeText(`@${me?.username}`);
                     toast("Username copied");
                   }}
                   className="flex items-center gap-1.5 text-[13px] text-secondary hover:text-primary"
                 >
-                  @{me.username}
+                  @{me?.username}
                   <Copy size={13} />
                 </button>
               }
             />
-            <SettingsRow label="Phone" control={<span className="text-[13px] text-secondary">{me.phone}</span>} />
+            <SettingsRow label="Phone" control={<span className="text-[13px] text-secondary">{me?.phone}</span>} />
           </SettingsCard>
           <div className="mt-6 flex justify-end">
-            <Button variant="primary" onClick={handleSave}>
-              Save
+            <Button variant="primary" onClick={handleSave} disabled={saving}>
+              {saving ? "Saving…" : "Save"}
             </Button>
           </div>
         </>

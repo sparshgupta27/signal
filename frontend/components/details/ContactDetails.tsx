@@ -6,7 +6,7 @@ import { Bell, BellOff, Image, Lock, Search, Timer, UserCheck, UserPlus } from "
 import type { Conversation } from "@/types";
 import { Avatar } from "@/components/ui/Avatar";
 import { getOtherMemberId } from "@/lib/conversationDisplay";
-import { getUser } from "@/lib/mock/data";
+import { getUser } from "@/lib/users";
 import { usePresence } from "@/hooks/usePresence";
 import { useConversationActions } from "@/hooks/useConversationActions";
 import { useContactActions } from "@/hooks/useContactActions";

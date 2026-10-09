@@ -5,16 +5,18 @@ import { useQueryClient } from "@tanstack/react-query";
 import { useRouter } from "next/navigation";
 import { toast } from "sonner";
 import type { Conversation } from "@/types";
-import { CURRENT_USER_ID, getUser } from "@/lib/mock/data";
-import { sortConversations } from "@/lib/mock/api";
-import { mockSocket } from "@/lib/mock/socket";
+import * as api from "@/lib/api";
+import { getCurrentUserId } from "@/lib/session";
+import { getUser, primeUser, primeUsers } from "@/lib/users";
+import { sortConversations } from "@/lib/api";
+import { wsClient } from "@/lib/ws";
 import { useChatStore } from "@/store/chatStore";
 import { usePresenceStore } from "@/store/presenceStore";
 import { Avatar } from "@/components/ui/Avatar";
 import { conversationsQueryKey } from "./useConversations";
 
 /**
- * Mounted once near the app root. Wires mock-socket events into the
+ * Mounted once near the app root. Wires the WebSocket connection into the
  * TanStack Query cache (chat list) and the Zustand presence store, and owns
  * the side effects that aren't any single screen's job: incoming-message
  * toasts and the unread count in the tab title.
@@ -25,7 +27,14 @@ export function useSocketBridge() {
   const typingTimers = useRef(new Map<string, ReturnType<typeof setTimeout>>());
 
   useEffect(() => {
-    mockSocket.start();
+    wsClient.start();
+
+    // Primes the whole user directory once per session, so every seeded
+    // conversation's members/senders resolve immediately instead of one at
+    // a time via the on-demand cache-miss fetch below.
+    Promise.all([api.getMe(), api.listAllUsers()])
+      .then(([me, others]) => primeUsers([me, ...others]))
+      .catch(() => {});
 
     const patchConversation = (conversation: Conversation) => {
       queryClient.setQueryData<Conversation[]>(conversationsQueryKey, (prev) => {
@@ -38,7 +47,7 @@ export function useSocketBridge() {
       });
     };
 
-    const offConversationUpdated = mockSocket.on("conversation.updated", ({ conversation }) => {
+    const offConversationUpdated = wsClient.on("conversation.updated", ({ conversation }) => {
       patchConversation(conversation);
       const totalUnread = (
         queryClient.getQueryData<Conversation[]>(conversationsQueryKey) ?? []
@@ -46,15 +55,15 @@ export function useSocketBridge() {
       document.title = totalUnread > 0 ? `(${totalUnread}) Signal Clone` : "Signal Clone";
     });
 
-    const offPresence = mockSocket.on("presence", (data) => {
+    const offPresence = wsClient.on("presence", (data) => {
       usePresenceStore.getState().setPresence(data.userId, {
         isOnline: data.isOnline,
         lastSeenAt: data.lastSeenAt,
       });
     });
 
-    const offTyping = mockSocket.on("typing", (data) => {
-      if (data.userId === CURRENT_USER_ID) return;
+    const offTyping = wsClient.on("typing", (data) => {
+      if (data.userId === getCurrentUserId()) return;
       usePresenceStore.getState().setTyping(data.conversationId, data.userId, data.isTyping);
 
       const key = `${data.conversationId}:${data.userId}`;
@@ -71,15 +80,22 @@ export function useSocketBridge() {
       }
     });
 
-    const offMessageNew = mockSocket.on("message.new", ({ message }) => {
-      if (message.senderId === CURRENT_USER_ID || message.type !== "text") return;
+    const offMessageNew = wsClient.on("message.new", ({ message }) => {
+      if (message.senderId === getCurrentUserId() || message.type !== "text") return;
       const conversations = queryClient.getQueryData<Conversation[]>(conversationsQueryKey) ?? [];
       const conversation = conversations.find((c) => c.id === message.conversationId);
       if (!conversation || conversation.isMuted) return;
       if (useChatStore.getState().activeConversationId === message.conversationId) return;
 
       const sender = getUser(message.senderId);
-      if (!sender) return;
+      if (!sender) {
+        // Cache miss — someone not seen before (a new DM, a new group
+        // member). Can't render this toast without their name/avatar, but
+        // prime the cache in the background so the *next* event about them
+        // resolves immediately.
+        if (message.senderId) api.getUserById(message.senderId).then(primeUser).catch(() => {});
+        return;
+      }
 
       toast.custom(() => (
         <button
@@ -102,9 +118,9 @@ export function useSocketBridge() {
     const timers = typingTimers.current;
     return () => {
       // This hook only ever unmounts via RequireAuth gating AppShell away,
-      // i.e. on logout — so stopping the simulation here is exactly "stop
-      // pretending other people are using the app once nobody's logged in."
-      mockSocket.stop();
+      // i.e. on logout — so disconnecting here is exactly "no socket once
+      // nobody's logged in."
+      wsClient.stop();
       offConversationUpdated();
       offPresence();
       offTyping();
