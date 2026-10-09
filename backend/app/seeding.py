@@ -23,7 +23,7 @@ SEED_USERS = [
     {"id": "dev", "phone": "+91 90000 00008", "username": "dev.08", "name": "Dev Patel", "about": ""},
 ]
 
-CONTACTS_OF_DEMO = ["aarav", "priya", "rohan", "ananya", "kabir"]
+CONTACTS_OF_DEMO = ["aarav", "priya", "rohan", "ananya", "kabir", "dev"]
 
 _seq = 0
 
@@ -168,6 +168,76 @@ def _seed_direct(
     return conversation
 
 
+def _dm_exists(db: Session, a: str, b: str) -> bool:
+    key = ":".join(sorted([a, b]))
+    return db.query(models.Conversation).filter_by(dm_key=key).first() is not None
+
+
+def seed_missing_demo_dms(db: Session, clock: _Clock | None = None) -> None:
+    """Backfill-safe: creates only the demo<->X DMs that don't already exist,
+    so it can run against a live database with real users on it (where
+    run_seed's "skip if any user exists" guard would otherwise skip this
+    entirely) without touching or duplicating anything else."""
+    # SessionLocal is autoflush=False, so when this is called from inside
+    # run_seed (same uncommitted transaction), the existence checks below
+    # would otherwise be blind to what that function already db.add()'d
+    # moments ago — e.g. CONTACTS_OF_DEMO's "dev" contact — and duplicate
+    # it, hitting the composite-PK unique constraint at commit time.
+    db.flush()
+    if not db.get(models.User, "demo"):
+        return
+    clock = clock or _Clock(datetime.now(timezone.utc))
+
+    if db.get(models.User, "ananya") and not _dm_exists(db, "demo", "ananya"):
+        _seed_direct(
+            db,
+            clock,
+            "demo",
+            "ananya",
+            [
+                ("ananya", "are we still on for sunday dinner?", clock.ago(hours=5), True),
+                ("demo", "yep! what time works", clock.ago(hours=4, minutes=50), True),
+                ("ananya", "7pm? i'll tell the others", clock.ago(hours=4, minutes=45), True),
+                ("demo", "sounds good 👍", clock.ago(hours=4, minutes=40), True),
+            ],
+        )
+
+    # --- demo <-> meera: not yet a saved contact, ordinary --------------------
+    # Deliberately not in CONTACTS_OF_DEMO — exercises messaging someone who
+    # isn't a saved contact yet, same as the real "Add contact" flow.
+    if db.get(models.User, "meera") and not _dm_exists(db, "demo", "meera"):
+        _seed_direct(
+            db,
+            clock,
+            "demo",
+            "meera",
+            [
+                ("meera", "hey, got your number from ananya!", clock.ago(days=1, hours=2), True),
+                ("demo", "hey meera, welcome 👋", clock.ago(days=1, hours=2) + timedelta(minutes=3), True),
+                ("meera", "are you coming sunday too?", clock.ago(days=1, hours=1, minutes=55), True),
+            ],
+        )
+
+    if db.get(models.User, "dev") and not _dm_exists(db, "demo", "dev"):
+        _seed_direct(
+            db,
+            clock,
+            "demo",
+            "dev",
+            [
+                ("dev", "placement prep session this week?", clock.ago(hours=8), True),
+                ("demo", "yeah, thursday works for me", clock.ago(hours=7, minutes=50), True),
+                ("dev", "perfect, i'll set it up", clock.ago(hours=7, minutes=45), True),
+            ],
+        )
+
+    if db.get(models.User, "demo") and db.get(models.User, "dev"):
+        if not db.get(models.Contact, ("demo", "dev")):
+            db.add(models.Contact(owner_id="demo", contact_id="dev"))
+
+    db.commit()
+
+
 def run_seed(db: Session) -> None:
     if db.query(models.User).count() > 0:
         return
@@ -257,6 +327,8 @@ def run_seed(db: Session) -> None:
         msg_type="system",
         system_event={"action": "disappearing_changed", "actorId": "kabir", "value": "86400"},
     )
+
+    seed_missing_demo_dms(db, clock)
 
     # --- group: Weekend Trip (demo admin, rohan removed) ----------------------
     trip = models.Conversation(

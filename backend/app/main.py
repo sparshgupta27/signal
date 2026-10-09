@@ -23,7 +23,7 @@ from .routers import (
     uploads,
     users,
 )
-from .seeding import run_seed
+from .seeding import run_seed, seed_missing_demo_dms
 from .services import conversation_service, message_service
 from .ws.broadcast import broadcast_message_deleted
 from .ws.router import router as ws_router
@@ -55,6 +55,13 @@ async def lifespan(_app: FastAPI):
     db = SessionLocal()
     try:
         run_seed(db)
+        # Runs unconditionally (unlike run_seed, which bails the moment any
+        # user exists) so a deployment that was seeded before these DMs
+        # existed — i.e. the live one, which also has real accounts on it
+        # now — backfills them on the next restart instead of needing a
+        # destructive reseed. Checks each DM's existence first, so it's a
+        # no-op on a database that already has them.
+        seed_missing_demo_dms(db)
     finally:
         db.close()
 
