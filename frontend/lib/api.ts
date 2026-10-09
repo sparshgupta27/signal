@@ -397,6 +397,20 @@ export function lookupUser(identifier: string): Promise<DirectoryUser | null> {
   return request(`/api/v1/users/lookup${qs({ identifier })}`);
 }
 
+// --- blocking -----------------------------------------------------------------
+
+export function getBlockedUserIds(): Promise<{ userIds: string[] }> {
+  return request("/api/v1/users/me/blocked");
+}
+
+export async function blockUser(userId: string): Promise<void> {
+  await request(`/api/v1/users/${userId}/block`, { method: "POST" });
+}
+
+export async function unblockUser(userId: string): Promise<void> {
+  await request(`/api/v1/users/${userId}/block`, { method: "DELETE" });
+}
+
 // --- search -----------------------------------------------------------------------
 
 export interface SearchResults {

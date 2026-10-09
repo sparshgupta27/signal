@@ -9,6 +9,7 @@ from ..core.database import get_db
 from ..core.deps import get_current_user
 from ..directory import find_user_by_identifier
 from ..seeding import remove_demo_data_for_user, seed_demo_data_for_user
+from ..services import block_service
 
 router = APIRouter(prefix="/api/v1/users", tags=["users"])
 
@@ -65,6 +66,27 @@ def load_demo_data(user: models.User = Depends(get_current_user), db: Session = 
 def remove_demo_data(user: models.User = Depends(get_current_user), db: Session = Depends(get_db)):
     removed = remove_demo_data_for_user(db, user.id)
     return schemas.RemoveDemoDataOut(removed=removed)
+
+
+@router.get("/me/blocked", response_model=schemas.BlockedUsersOut)
+def list_blocked(user: models.User = Depends(get_current_user), db: Session = Depends(get_db)):
+    return schemas.BlockedUsersOut(user_ids=block_service.list_blocked_ids(db, user.id))
+
+
+@router.post("/{user_id}/block", status_code=204)
+def block_user(
+    user_id: str, user: models.User = Depends(get_current_user), db: Session = Depends(get_db)
+):
+    if user_id == user.id:
+        raise HTTPException(400, "Cannot block yourself")
+    block_service.block_user(db, user.id, user_id)
+
+
+@router.delete("/{user_id}/block", status_code=204)
+def unblock_user(
+    user_id: str, user: models.User = Depends(get_current_user), db: Session = Depends(get_db)
+):
+    block_service.unblock_user(db, user.id, user_id)
 
 
 @router.get("", response_model=list[schemas.UserOut])

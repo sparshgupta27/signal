@@ -67,6 +67,14 @@ class Contact(Base):
     created_at: Mapped[datetime] = mapped_column(default=utcnow)
 
 
+class BlockedUser(Base):
+    __tablename__ = "blocked_users"
+
+    owner_id: Mapped[str] = mapped_column(ForeignKey("users.id", ondelete="CASCADE"), primary_key=True)
+    blocked_id: Mapped[str] = mapped_column(ForeignKey("users.id", ondelete="CASCADE"), primary_key=True)
+    created_at: Mapped[datetime] = mapped_column(default=utcnow)
+
+
 class Conversation(Base):
     __tablename__ = "conversations"
 

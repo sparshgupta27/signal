@@ -24,11 +24,18 @@ type UploadedAttachment = MessageAttachment & { id: string };
 interface ComposerProps {
   conversationId: string;
   canSend: boolean;
+  disabledMessage?: string;
   replyTo: Message | null;
   onCancelReply: () => void;
 }
 
-export function Composer({ conversationId, canSend, replyTo, onCancelReply }: ComposerProps) {
+export function Composer({
+  conversationId,
+  canSend,
+  disabledMessage,
+  replyTo,
+  onCancelReply,
+}: ComposerProps) {
   // The draft lives in uiStore, keyed by conversation — reading it straight
   // from there (rather than mirroring into local state) means switching
   // chats never needs an effect to resync anything.
@@ -172,7 +179,7 @@ export function Composer({ conversationId, canSend, replyTo, onCancelReply }: Co
     return (
       <div className="flex shrink-0 items-center justify-center border-t border-divider bg-app px-4 py-4">
         <p className="text-[13px] text-secondary">
-          You can&apos;t send messages because you&apos;re no longer a member
+          {disabledMessage ?? "You can't send messages because you're no longer a member"}
         </p>
       </div>
     );

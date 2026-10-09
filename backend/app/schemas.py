@@ -92,6 +92,10 @@ class AddContactIn(CamelModel):
     user_id: str
 
 
+class BlockedUsersOut(CamelModel):
+    user_ids: list[str]
+
+
 # --- conversations ------------------------------------------------------------
 
 

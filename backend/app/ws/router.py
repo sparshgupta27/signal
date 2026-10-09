@@ -7,7 +7,7 @@ from sqlalchemy.orm import Session
 from .. import models
 from ..core.database import SessionLocal
 from ..core.deps import resolve_user_from_token
-from ..services import conversation_service, message_service
+from ..services import block_service, conversation_service, message_service
 from .broadcast import broadcast_conversation_updated, broadcast_message_new, broadcast_message_status, json_payload
 from .manager import manager
 
@@ -98,6 +98,12 @@ async def _handle_send(db: Session, user_id: str, data: dict) -> None:
     conversation = db.get(models.Conversation, conversation_id)
     if not conversation:
         return
+
+    if conversation.type == "direct":
+        member_ids = conversation_service.active_member_ids(db, conversation_id)
+        other_id = next((uid for uid in member_ids if uid != user_id), None)
+        if other_id and block_service.any_block_between(db, user_id, other_id):
+            return
 
     message = message_service.create_message(
         db, conversation, user_id, client_id, body, reply_to_id, attachment_ids

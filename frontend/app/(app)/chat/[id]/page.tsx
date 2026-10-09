@@ -11,6 +11,8 @@ import { useMarkRead } from "@/hooks/useMarkRead";
 import { useChatStore } from "@/store/chatStore";
 import { useUiStore } from "@/store/uiStore";
 import { getCurrentUserId } from "@/lib/session";
+import { getOtherMemberId } from "@/lib/conversationDisplay";
+import { useIsBlocked } from "@/hooks/useBlockedUsers";
 
 export default function ChatPage({ params }: { params: Promise<{ id: string }> }) {
   const { id: conversationId } = use(params);
@@ -35,6 +37,8 @@ export default function ChatPage({ params }: { params: Promise<{ id: string }> }
   const replyTargetId = useUiStore((s) => s.replyTargets[conversationId]);
   const setReplyTarget = useUiStore((s) => s.setReplyTarget);
   const replyTo = replyTargetId ? messages.find((m) => m.id === replyTargetId) ?? null : null;
+  const otherMemberId = conversation ? getOtherMemberId(conversation) : undefined;
+  const isBlocked = useIsBlocked(otherMemberId);
 
   useMarkRead(conversationId, messages[messages.length - 1]?.id);
 
@@ -56,7 +60,11 @@ export default function ChatPage({ params }: { params: Promise<{ id: string }> }
     );
   }
 
-  const canSend = conversation.memberIds.includes(getCurrentUserId() ?? "");
+  const isMember = conversation.memberIds.includes(getCurrentUserId() ?? "");
+  const canSend = isMember && !isBlocked;
+  const disabledMessage = isBlocked
+    ? "You can't send messages — you've blocked this contact"
+    : undefined;
 
   return (
     <div className="relative flex min-w-0 flex-1">
@@ -78,6 +86,7 @@ export default function ChatPage({ params }: { params: Promise<{ id: string }> }
         <Composer
           conversationId={conversationId}
           canSend={canSend}
+          disabledMessage={disabledMessage}
           replyTo={replyTo}
           onCancelReply={() => setReplyTarget(conversationId, undefined)}
         />

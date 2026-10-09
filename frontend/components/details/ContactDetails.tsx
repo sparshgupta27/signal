@@ -11,6 +11,8 @@ import { usePresence } from "@/hooks/usePresence";
 import { useConversationActions } from "@/hooks/useConversationActions";
 import { useContactActions } from "@/hooks/useContactActions";
 import { useIsContact } from "@/hooks/useContacts";
+import { useBlockActions, useIsBlocked } from "@/hooks/useBlockedUsers";
+import { ConfirmDialog } from "@/components/dialogs/ConfirmDialog";
 import { formatDisappearingDuration, formatLastSeenLabel } from "@/lib/format";
 import { ComingSoonDialog } from "@/components/dialogs/ComingSoonDialog";
 import { DisappearingMessagesDialog } from "@/components/dialogs/DisappearingMessagesDialog";
@@ -72,6 +74,7 @@ export function ContactDetails({ conversation }: { conversation: Conversation })
   const [disappearingOpen, setDisappearingOpen] = useState(false);
   const [sharedMediaOpen, setSharedMediaOpen] = useState(false);
   const [safetyNumberOpen, setSafetyNumberOpen] = useState(false);
+  const [blockConfirmOpen, setBlockConfirmOpen] = useState(false);
   const { media } = useSharedMedia(conversation.id);
   const otherId = getOtherMemberId(conversation);
   const user = getUser(otherId);
@@ -79,6 +82,8 @@ export function ContactDetails({ conversation }: { conversation: Conversation })
   const { toggleMute, setDisappearing } = useConversationActions();
   const { addContact, removeContact } = useContactActions();
   const isContact = useIsContact(otherId);
+  const isBlocked = useIsBlocked(otherId);
+  const { blockUser, unblockUser } = useBlockActions();
 
   if (!user) return null;
 
@@ -135,12 +140,27 @@ export function ContactDetails({ conversation }: { conversation: Conversation })
       <div className="mx-4">
         <button
           type="button"
-          onClick={() => toast(`${user.name} blocked`)}
+          onClick={() => {
+            if (isBlocked) {
+              unblockUser(user.id, user.name);
+            } else {
+              setBlockConfirmOpen(true);
+            }
+          }}
           className="w-full rounded-lg px-3 py-3 text-left text-[13.5px] font-medium text-danger hover:bg-danger/10"
         >
-          Block {user.name.split(" ")[0]}
+          {isBlocked ? `Unblock ${user.name.split(" ")[0]}` : `Block ${user.name.split(" ")[0]}`}
         </button>
       </div>
+
+      <ConfirmDialog
+        open={blockConfirmOpen}
+        onOpenChange={setBlockConfirmOpen}
+        title={`Block ${user.name}?`}
+        description="They won't be able to send you messages, and you won't be able to send them any, until you unblock them."
+        confirmLabel="Block"
+        onConfirm={() => blockUser(user.id, user.name)}
+      />
 
       <ComingSoonDialog
         open={comingSoon !== null}
