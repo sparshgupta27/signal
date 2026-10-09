@@ -27,7 +27,13 @@ def get_messages(
     if not participant:
         raise HTTPException(403, "Not a member")
 
-    query = select(models.Message).where(models.Message.conversation_id == conversation_id)
+    hidden_ids = select(models.MessageHiddenForUser.message_id).where(
+        models.MessageHiddenForUser.user_id == user.id
+    )
+    query = select(models.Message).where(
+        models.Message.conversation_id == conversation_id,
+        models.Message.id.not_in(hidden_ids),
+    )
     if before:
         anchor = db.get(models.Message, before)
         if anchor:

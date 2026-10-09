@@ -73,6 +73,10 @@ export function useMessages(conversationId: string) {
         )
       );
     });
+    const offEdited = wsClient.on("message.edited", ({ message }) => {
+      if (message.conversationId !== conversationId) return;
+      setMessages((prev) => prev.map((m) => (m.id === message.id ? message : m)));
+    });
     const offReaction = wsClient.on("reaction.updated", (data) => {
       if (data.conversationId !== conversationId) return;
       setMessages((prev) =>
@@ -83,6 +87,7 @@ export function useMessages(conversationId: string) {
       offNew();
       offStatus();
       offDeleted();
+      offEdited();
       offReaction();
     };
   }, [conversationId]);
@@ -114,5 +119,36 @@ export function useMessages(conversationId: string) {
     [messages]
   );
 
-  return { messages, isLoading, hasMore, isLoadingOlder, loadOlder, toggleReaction };
+  const editMessage = useCallback(async (messageId: string, body: string) => {
+    const updated = await api.editMessage(messageId, body);
+    setMessages((prev) => prev.map((m) => (m.id === messageId ? updated : m)));
+  }, []);
+
+  const deleteForMe = useCallback(async (messageId: string) => {
+    await api.deleteMessageForMe(messageId);
+    setMessages((prev) => prev.filter((m) => m.id !== messageId));
+  }, []);
+
+  const deleteForEveryone = useCallback(async (messageId: string) => {
+    await api.deleteMessageForEveryone(messageId);
+    setMessages((prev) =>
+      prev.map((m) =>
+        m.id === messageId
+          ? { ...m, deletedAt: new Date().toISOString(), body: "", attachment: null }
+          : m
+      )
+    );
+  }, []);
+
+  return {
+    messages,
+    isLoading,
+    hasMore,
+    isLoadingOlder,
+    loadOlder,
+    toggleReaction,
+    editMessage,
+    deleteForMe,
+    deleteForEveryone,
+  };
 }

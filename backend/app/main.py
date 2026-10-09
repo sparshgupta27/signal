@@ -17,6 +17,7 @@ from .routers import (
     conversations,
     forward,
     groups,
+    message_actions,
     messages,
     reactions,
     search,
@@ -94,6 +95,7 @@ app.include_router(messages.router)
 app.include_router(groups.router)
 app.include_router(reactions.router)
 app.include_router(forward.router)
+app.include_router(message_actions.router)
 app.include_router(uploads.router)
 app.include_router(search.router)
 app.include_router(ws_router)

@@ -86,8 +86,8 @@ class WsClient {
       // singular, full URLs) exactly like REST responses do — api.ts maps
       // those via mapMessage(), so live WS messages need the same pass or
       // every attachment silently vanishes the moment it arrives live.
-      if (parsed.type === "message.new") {
-        this.emit("message.new", { message: mapMessage(parsed.data.message) });
+      if (parsed.type === "message.new" || parsed.type === "message.edited") {
+        this.emit(parsed.type, { message: mapMessage(parsed.data.message) });
         return;
       }
       this.emit(parsed.type, parsed.data as never);

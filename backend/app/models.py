@@ -104,6 +104,7 @@ class Message(Base):
     system_event: Mapped[dict | None] = mapped_column(JSON, nullable=True)
     created_at: Mapped[datetime] = mapped_column(default=utcnow)
     deleted_at: Mapped[datetime | None] = mapped_column(nullable=True)
+    edited_at: Mapped[datetime | None] = mapped_column(nullable=True)
     # Set once, at send time, from the conversation's disappearing_seconds AT
     # THAT MOMENT — never recomputed from the live timer later, so changing
     # the timer afterward can't retroactively expire old messages.
@@ -113,6 +114,20 @@ class Message(Base):
         Index("ix_messages_conv_created", "conversation_id", "created_at"),
         Index("ix_messages_expires_at", "expires_at"),
     )
+
+
+class MessageHiddenForUser(Base):
+    """'Delete for me' — hides a message from one viewer's own history
+    without touching it for anyone else, unlike deleted_at (which is a
+    real, global soft-delete used for 'delete for everyone' and expiry)."""
+
+    __tablename__ = "message_hidden_for_user"
+
+    message_id: Mapped[str] = mapped_column(
+        ForeignKey("messages.id", ondelete="CASCADE"), primary_key=True
+    )
+    user_id: Mapped[str] = mapped_column(ForeignKey("users.id", ondelete="CASCADE"), primary_key=True)
+    created_at: Mapped[datetime] = mapped_column(default=utcnow)
 
 
 class Attachment(Base):

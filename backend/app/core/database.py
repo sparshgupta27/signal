@@ -69,6 +69,7 @@ def get_db():
 # lifespan, done.
 _PENDING_COLUMNS: list[tuple[str, str, str]] = [
     ("users", "show_last_seen", "BOOLEAN DEFAULT 1"),
+    ("messages", "edited_at", "DATETIME"),
 ]
 
 

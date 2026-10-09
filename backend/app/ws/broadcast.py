@@ -34,6 +34,13 @@ async def broadcast_message_new(db: Session, message: models.Message, member_ids
         await manager.send_to_user(uid, payload)
 
 
+async def broadcast_message_edited(db: Session, message: models.Message, member_ids: list[str]) -> None:
+    out = message_service.message_out(db, message, member_ids)
+    payload = {"type": "message.edited", "data": {"message": json_payload(out)}}
+    for uid in member_ids:
+        await manager.send_to_user(uid, payload)
+
+
 async def broadcast_message_status(
     member_ids: list[str], message_id: str, conversation_id: str, status: str, at: datetime
 ) -> None:

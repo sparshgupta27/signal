@@ -3,6 +3,7 @@ import type { Conversation, Message, MessageReaction, MessageStatus } from "./in
 /** The real WebSocket contract, served from /ws (see lib/ws.ts). */
 export type WsEvent =
   | { type: "message.new"; data: { message: Message } }
+  | { type: "message.edited"; data: { message: Message } }
   | {
       type: "message.status";
       data: {

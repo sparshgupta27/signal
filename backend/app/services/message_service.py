@@ -101,8 +101,62 @@ def message_out(db: Session, message: models.Message, member_ids: list[str]) -> 
         status=compute_status(db, message, member_ids),
         created_at=message.created_at,
         deleted_at=message.deleted_at,
+        edited_at=message.edited_at,
         system_event=message.system_event,
     )
+
+
+def edit_message(db: Session, message: models.Message, body: str) -> models.Message:
+    message.body = body
+    message.edited_at = datetime.now(timezone.utc)
+    db.commit()
+    db.refresh(message)
+    return message
+
+
+def delete_for_everyone(db: Session, message: models.Message) -> models.Message:
+    message.deleted_at = datetime.now(timezone.utc)
+    message.body = ""
+    _delete_attachments(db, message.id)
+    db.commit()
+    db.refresh(message)
+    return message
+
+
+def delete_for_me(db: Session, message_id: str, user_id: str) -> bool:
+    """Idempotent — hides the message from this viewer only. Returns False
+    if it was already hidden (nothing to do)."""
+    existing = db.get(models.MessageHiddenForUser, (message_id, user_id))
+    if existing:
+        return False
+    db.add(models.MessageHiddenForUser(message_id=message_id, user_id=user_id))
+    db.commit()
+    return True
+
+
+def get_receipts(
+    db: Session, message: models.Message, member_ids: list[str]
+) -> list[schemas.MessageReceiptOut]:
+    """Per-member delivered/read state for the 'Message details' view —
+    everyone but the sender, since the sender trivially has their own copy."""
+    others = [uid for uid in member_ids if uid != message.sender_id]
+    receipts = {
+        r.user_id: r
+        for r in db.execute(
+            select(models.MessageReceipt).where(
+                models.MessageReceipt.message_id == message.id,
+                models.MessageReceipt.user_id.in_(others),
+            )
+        ).scalars()
+    }
+    return [
+        schemas.MessageReceiptOut(
+            user_id=uid,
+            delivered_at=receipts[uid].delivered_at if uid in receipts else None,
+            read_at=receipts[uid].read_at if uid in receipts else None,
+        )
+        for uid in others
+    ]
 
 
 def create_message(

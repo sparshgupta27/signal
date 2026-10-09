@@ -1,11 +1,14 @@
 "use client";
 
-import { useState } from "react";
+import { useEffect, useRef, useState } from "react";
+import { toast } from "sonner";
 import { Ban, CornerUpLeft, Download, File as FileIcon, MoreHorizontal, SmilePlus } from "lucide-react";
 import type { Message } from "@/types";
 import { Avatar } from "@/components/ui/Avatar";
 import { Dialog, DialogContent } from "@/components/ui/Dialog";
 import { ForwardDialog } from "@/components/dialogs/ForwardDialog";
+import { ConfirmDialog } from "@/components/dialogs/ConfirmDialog";
+import { MessageDetailsDialog } from "@/components/dialogs/MessageDetailsDialog";
 import { StatusIcon } from "./StatusIcon";
 import { cn } from "@/lib/cn";
 import { formatBubbleTime, formatFileSize } from "@/lib/format";
@@ -40,6 +43,9 @@ interface MessageBubbleProps {
   onReply?: (message: Message) => void;
   onReact?: (message: Message, emoji: string) => void;
   onScrollToMessage?: (messageId: string) => void;
+  onEdit?: (message: Message, body: string) => void;
+  onDeleteForMe?: (message: Message) => void;
+  onDeleteForEveryone?: (message: Message) => void;
 }
 
 const QUICK_REACTIONS = ["❤️", "😂", "😮", "😢", "🙏", "👍"];
@@ -57,9 +63,38 @@ export function MessageBubble({
   onReply,
   onReact,
   onScrollToMessage,
+  onEdit,
+  onDeleteForMe,
+  onDeleteForEveryone,
 }: MessageBubbleProps) {
   const [lightboxOpen, setLightboxOpen] = useState(false);
   const [forwardOpen, setForwardOpen] = useState(false);
+  const [detailsOpen, setDetailsOpen] = useState(false);
+  const [deleteForMeOpen, setDeleteForMeOpen] = useState(false);
+  const [deleteForEveryoneOpen, setDeleteForEveryoneOpen] = useState(false);
+  const [isEditing, setIsEditing] = useState(false);
+  const [editBody, setEditBody] = useState(message.body);
+  const editRef = useRef<HTMLTextAreaElement>(null);
+
+  const startEditing = () => {
+    setEditBody(message.body);
+    setIsEditing(true);
+  };
+
+  useEffect(() => {
+    if (isEditing) {
+      editRef.current?.focus();
+      editRef.current?.select();
+    }
+  }, [isEditing]);
+
+  const commitEdit = () => {
+    const trimmed = editBody.trim();
+    if (trimmed && trimmed !== message.body) {
+      onEdit?.(message, trimmed);
+    }
+    setIsEditing(false);
+  };
 
   if (message.deletedAt) {
     return (
@@ -110,9 +145,14 @@ export function MessageBubble({
           {isOwn && (
             <HoverToolbar
               message={message}
+              isOwn={isOwn}
               onReply={onReply}
               onReact={onReact}
               onForward={() => setForwardOpen(true)}
+              onEdit={startEditing}
+              onShowDetails={() => setDetailsOpen(true)}
+              onDeleteForMe={() => setDeleteForMeOpen(true)}
+              onDeleteForEveryone={() => setDeleteForEveryoneOpen(true)}
               align="left"
             />
           )}
@@ -206,14 +246,49 @@ export function MessageBubble({
                 </a>
               )}
 
-              {message.body && (
-                <span className="whitespace-pre-wrap break-words text-[14.5px] leading-[21px]">
-                  {message.body}
-                  <span className="ml-2 inline-flex translate-y-1 items-center gap-1 align-bottom text-[11px] opacity-0">
-                    {formatBubbleTime(message.createdAt)}
-                    {isOwn && <StatusIcon status={message.status} />}
+              {isEditing ? (
+                <div className="flex min-w-[200px] flex-col gap-1.5">
+                  <textarea
+                    ref={editRef}
+                    value={editBody}
+                    onChange={(e) => setEditBody(e.target.value)}
+                    onKeyDown={(e) => {
+                      if (e.key === "Enter" && !e.shiftKey) {
+                        e.preventDefault();
+                        commitEdit();
+                      } else if (e.key === "Escape") {
+                        setIsEditing(false);
+                      }
+                    }}
+                    rows={1}
+                    className={cn(
+                      "resize-none rounded-sm bg-transparent text-[14.5px] leading-[21px] outline-none",
+                      isOwn ? "placeholder:text-on-accent/60" : "placeholder:text-secondary"
+                    )}
+                  />
+                  <div className="flex items-center justify-end gap-2 text-[11.5px] font-medium">
+                    <button
+                      type="button"
+                      onClick={() => setIsEditing(false)}
+                      className="opacity-80 hover:opacity-100"
+                    >
+                      Cancel
+                    </button>
+                    <button type="button" onClick={commitEdit} className="opacity-80 hover:opacity-100">
+                      Save
+                    </button>
+                  </div>
+                </div>
+              ) : (
+                message.body && (
+                  <span className="whitespace-pre-wrap break-words text-[14.5px] leading-[21px]">
+                    {message.body}
+                    <span className="ml-2 inline-flex translate-y-1 items-center gap-1 align-bottom text-[11px] opacity-0">
+                      {formatBubbleTime(message.createdAt)}
+                      {isOwn && <StatusIcon status={message.status} />}
+                    </span>
                   </span>
-                </span>
+                )
               )}
 
               <span
@@ -222,6 +297,7 @@ export function MessageBubble({
                   mediaOnly ? "bg-black/45 px-1.5 py-0.5 text-white" : isOwn ? "text-on-accent/80" : "text-secondary"
                 )}
               >
+                {message.editedAt && !isEditing && <span className="italic opacity-80">edited</span>}
                 {formatBubbleTime(message.createdAt)}
                 {isOwn && (
                   <StatusIcon
@@ -249,9 +325,14 @@ export function MessageBubble({
           {!isOwn && (
             <HoverToolbar
               message={message}
+              isOwn={isOwn}
               onReply={onReply}
               onReact={onReact}
               onForward={() => setForwardOpen(true)}
+              onEdit={startEditing}
+              onShowDetails={() => setDetailsOpen(true)}
+              onDeleteForMe={() => setDeleteForMeOpen(true)}
+              onDeleteForEveryone={() => setDeleteForEveryoneOpen(true)}
               align="right"
             />
           )}
@@ -280,21 +361,54 @@ export function MessageBubble({
       </div>
 
       <ForwardDialog message={forwardOpen ? message : null} onOpenChange={setForwardOpen} />
+      <MessageDetailsDialog message={detailsOpen ? message : null} onOpenChange={setDetailsOpen} />
+      <ConfirmDialog
+        open={deleteForMeOpen}
+        onOpenChange={setDeleteForMeOpen}
+        title="Delete message for me?"
+        description="This removes the message from your view only — it stays visible to everyone else."
+        confirmLabel="Delete for me"
+        onConfirm={() => {
+          onDeleteForMe?.(message);
+          toast("Message deleted");
+        }}
+      />
+      <ConfirmDialog
+        open={deleteForEveryoneOpen}
+        onOpenChange={setDeleteForEveryoneOpen}
+        title="Delete message for everyone?"
+        description="This removes the message for everyone in the chat. This can't be undone."
+        confirmLabel="Delete for everyone"
+        onConfirm={() => {
+          onDeleteForEveryone?.(message);
+          toast("Message deleted");
+        }}
+      />
     </div>
   );
 }
 
 function HoverToolbar({
   message,
+  isOwn,
   onReply,
   onReact,
   onForward,
+  onEdit,
+  onShowDetails,
+  onDeleteForMe,
+  onDeleteForEveryone,
   align,
 }: {
   message: Message;
+  isOwn: boolean;
   onReply?: (message: Message) => void;
   onReact?: (message: Message, emoji: string) => void;
   onForward?: (message: Message) => void;
+  onEdit?: () => void;
+  onShowDetails?: () => void;
+  onDeleteForMe?: () => void;
+  onDeleteForEveryone?: () => void;
   align: "left" | "right";
 }) {
   return (
@@ -351,17 +465,29 @@ function HoverToolbar({
         </MenuTrigger>
         <MenuContent align="center">
           {message.body && (
-            <MenuItem onSelect={() => navigator.clipboard.writeText(message.body)}>Copy text</MenuItem>
+            <MenuItem
+              onSelect={() => {
+                navigator.clipboard.writeText(message.body);
+                toast("Copied");
+              }}
+            >
+              Copy text
+            </MenuItem>
           )}
           <MenuItem onSelect={() => onForward?.(message)}>Forward</MenuItem>
-          <MenuItem disabled>Message details</MenuItem>
+          {isOwn && message.type === "text" && (
+            <MenuItem onSelect={() => onEdit?.()}>Edit</MenuItem>
+          )}
+          {isOwn && <MenuItem onSelect={() => onShowDetails?.()}>Message details</MenuItem>}
           <MenuSeparator />
-          <MenuItem danger disabled>
+          <MenuItem danger onSelect={() => onDeleteForMe?.()}>
             Delete for me
           </MenuItem>
-          <MenuItem danger disabled>
-            Delete for everyone
-          </MenuItem>
+          {isOwn && (
+            <MenuItem danger onSelect={() => onDeleteForEveryone?.()}>
+              Delete for everyone
+            </MenuItem>
+          )}
         </MenuContent>
       </Menu>
     </div>

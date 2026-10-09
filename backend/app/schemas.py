@@ -171,6 +171,7 @@ class MessageOut(CamelModel):
     status: str
     created_at: datetime
     deleted_at: datetime | None = None
+    edited_at: datetime | None = None
     system_event: dict | None = None
 
 
@@ -188,6 +189,20 @@ class SendMessageIn(CamelModel):
 
 class ForwardMessageIn(CamelModel):
     conversation_ids: list[str]
+
+
+class EditMessageIn(CamelModel):
+    body: str
+
+
+class MessageReceiptOut(CamelModel):
+    user_id: str
+    delivered_at: datetime | None = None
+    read_at: datetime | None = None
+
+
+class MessageReceiptsOut(CamelModel):
+    receipts: list[MessageReceiptOut]
 
 
 class UploadOut(CamelModel):

@@ -18,8 +18,17 @@ export default function ChatPage({ params }: { params: Promise<{ id: string }> }
   const { conversations, isLoading: conversationsLoading } = useConversations();
   const conversation = conversations.find((c) => c.id === conversationId);
 
-  const { messages, isLoading, hasMore, isLoadingOlder, loadOlder, toggleReaction } =
-    useMessages(conversationId);
+  const {
+    messages,
+    isLoading,
+    hasMore,
+    isLoadingOlder,
+    loadOlder,
+    toggleReaction,
+    editMessage,
+    deleteForMe,
+    deleteForEveryone,
+  } = useMessages(conversationId);
 
   const setActiveConversationId = useChatStore((s) => s.setActiveConversationId);
   const closeDetailsPanel = useUiStore((s) => s.closeDetailsPanel);
@@ -62,6 +71,9 @@ export default function ChatPage({ params }: { params: Promise<{ id: string }> }
           onLoadOlder={loadOlder}
           onReply={(m) => setReplyTarget(conversationId, m.id)}
           onReact={(m, emoji) => toggleReaction(m.id, emoji)}
+          onEdit={(m, body) => editMessage(m.id, body).catch(() => {})}
+          onDeleteForMe={(m) => deleteForMe(m.id).catch(() => {})}
+          onDeleteForEveryone={(m) => deleteForEveryone(m.id).catch(() => {})}
         />
         <Composer
           conversationId={conversationId}

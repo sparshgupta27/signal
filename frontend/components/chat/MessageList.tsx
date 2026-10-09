@@ -90,6 +90,9 @@ interface MessageListProps {
   onLoadOlder: () => void;
   onReply: (message: Message) => void;
   onReact: (message: Message, emoji: string) => void;
+  onEdit: (message: Message, body: string) => void;
+  onDeleteForMe: (message: Message) => void;
+  onDeleteForEveryone: (message: Message) => void;
 }
 
 export function MessageList({
@@ -101,6 +104,9 @@ export function MessageList({
   onLoadOlder,
   onReply,
   onReact,
+  onEdit,
+  onDeleteForMe,
+  onDeleteForEveryone,
 }: MessageListProps) {
   const scrollRef = useRef<HTMLDivElement>(null);
   const prevScrollHeight = useRef(0);
@@ -228,6 +234,9 @@ export function MessageList({
                   onReply={onReply}
                   onReact={onReact}
                   onScrollToMessage={scrollToMessage}
+                  onEdit={onEdit}
+                  onDeleteForMe={onDeleteForMe}
+                  onDeleteForEveryone={onDeleteForEveryone}
                 />
               </div>
             );

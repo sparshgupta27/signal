@@ -105,5 +105,12 @@ export interface Message {
   status: MessageStatus;
   createdAt: string;
   deletedAt?: string | null;
+  editedAt?: string | null;
   systemEvent?: SystemEvent;
+}
+
+export interface MessageReceipt {
+  userId: string;
+  deliveredAt: string | null;
+  readAt: string | null;
 }

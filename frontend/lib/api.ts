@@ -253,6 +253,28 @@ export async function forwardMessage(
   return raw.map(mapMessage);
 }
 
+export async function editMessage(messageId: string, body: string): Promise<Message> {
+  const raw = await request<Message & { attachments?: RawAttachment[] }>(
+    `/api/v1/messages/${messageId}`,
+    { method: "PATCH", body: JSON.stringify({ body }) }
+  );
+  return mapMessage(raw);
+}
+
+export async function deleteMessageForMe(messageId: string): Promise<void> {
+  await request(`/api/v1/messages/${messageId}/me`, { method: "DELETE" });
+}
+
+export async function deleteMessageForEveryone(messageId: string): Promise<void> {
+  await request(`/api/v1/messages/${messageId}`, { method: "DELETE" });
+}
+
+export function getMessageReceipts(
+  messageId: string
+): Promise<{ receipts: { userId: string; deliveredAt: string | null; readAt: string | null }[] }> {
+  return request(`/api/v1/messages/${messageId}/receipts`);
+}
+
 export async function setReaction(messageId: string, emoji: string): Promise<void> {
   await request(`/api/v1/messages/${messageId}/reaction`, {
     method: "PUT",
