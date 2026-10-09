@@ -22,6 +22,24 @@ export default function WelcomePage() {
         Continue
       </Button>
 
+      <div className="w-full rounded-lg border border-divider bg-sidebar px-4 py-3 text-left">
+        <p className="mb-1.5 text-[11px] font-semibold uppercase tracking-wide text-accent">
+          Demo build — for evaluation
+        </p>
+        <p className="mb-2 text-[12.5px] leading-[18px] text-secondary">
+          Pre-loaded with sample accounts and conversations so there&apos;s no empty
+          inbox to start from. SMS and encryption are mocked, as explicitly permitted
+          by the brief — everything else (messaging, receipts, groups, attachments) is
+          real.
+        </p>
+        <p className="text-[12.5px] leading-[18px] text-secondary">
+          Log in as <span className="font-medium text-primary">demo.01</span> to see a
+          populated chat list, or open a second window as{" "}
+          <span className="font-medium text-primary">aarav.02</span> to try live
+          two-way messaging between them. Full account list in the README.
+        </p>
+      </div>
+
       <p className="max-w-[280px] text-center text-[12px] leading-[17px] text-secondary">
         By tapping Continue, you agree to our{" "}
         <span className="cursor-pointer text-accent hover:underline">Terms</span> &amp;{" "}
