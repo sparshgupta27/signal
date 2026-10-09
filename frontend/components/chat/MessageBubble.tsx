@@ -1,11 +1,13 @@
 "use client";
 
-import { Ban, CornerUpLeft, MoreHorizontal, SmilePlus } from "lucide-react";
+import { useState } from "react";
+import { Ban, CornerUpLeft, Download, File as FileIcon, MoreHorizontal, SmilePlus } from "lucide-react";
 import type { Message } from "@/types";
 import { Avatar } from "@/components/ui/Avatar";
+import { Dialog, DialogContent } from "@/components/ui/Dialog";
 import { StatusIcon } from "./StatusIcon";
 import { cn } from "@/lib/cn";
-import { formatBubbleTime } from "@/lib/format";
+import { formatBubbleTime, formatFileSize } from "@/lib/format";
 import { senderDisplayName } from "@/lib/conversationDisplay";
 import { getUser } from "@/lib/mock/data";
 import {
@@ -54,6 +56,8 @@ export function MessageBubble({
   onReact,
   onScrollToMessage,
 }: MessageBubbleProps) {
+  const [lightboxOpen, setLightboxOpen] = useState(false);
+
   if (message.deletedAt) {
     return (
       <div className={cn("mb-0.5 flex px-4", isOwn ? "justify-end" : "justify-start")}>
@@ -65,8 +69,9 @@ export function MessageBubble({
     );
   }
 
-  const emojiOnly = isEmojiOnly(message.body);
+  const emojiOnly = !message.attachment && isEmojiOnly(message.body);
   const reactionGroups = groupReactions(message.reactions);
+  const imageOnly = message.attachment?.kind === "image" && !message.body;
 
   const outgoingCorner = cn(
     !isLastInRun && "rounded-br-[5px]",
@@ -102,7 +107,8 @@ export function MessageBubble({
           ) : (
             <div
               className={cn(
-                "relative rounded-bubble px-3 py-2",
+                "relative rounded-bubble",
+                imageOnly ? "p-1" : "px-3 py-2",
                 isOwn ? ["bg-bubble-out text-on-accent", outgoingCorner] : ["bg-bubble-in text-primary", incomingCorner]
               )}
             >
@@ -133,23 +139,79 @@ export function MessageBubble({
                 </button>
               )}
 
-              <span className="whitespace-pre-wrap break-words text-[14.5px] leading-[21px]">
-                {message.body}
-                <span className="ml-2 inline-flex translate-y-1 items-center gap-1 align-bottom text-[11px] opacity-0">
-                  {formatBubbleTime(message.createdAt)}
-                  {isOwn && <StatusIcon status={message.status} />}
+              {message.attachment?.kind === "image" && (
+                <button
+                  type="button"
+                  onClick={() => setLightboxOpen(true)}
+                  className={cn("block overflow-hidden rounded-md", message.body && "mb-1.5")}
+                >
+                  {/* eslint-disable-next-line @next/next/no-img-element -- client-only data URL, not an optimizable asset */}
+                  <img
+                    src={message.attachment.url}
+                    alt={message.attachment.name}
+                    className="max-h-[320px] max-w-[260px] object-cover"
+                  />
+                </button>
+              )}
+
+              {message.attachment?.kind === "file" && (
+                <a
+                  href={message.attachment.url}
+                  download={message.attachment.name}
+                  className={cn(
+                    "flex items-center gap-2.5 rounded-md px-2.5 py-2",
+                    message.body && "mb-1.5",
+                    isOwn ? "bg-black/10" : "bg-black/5"
+                  )}
+                >
+                  <span
+                    className={cn(
+                      "flex h-9 w-9 shrink-0 items-center justify-center rounded-full",
+                      isOwn ? "bg-white/20" : "bg-accent/15 text-accent"
+                    )}
+                  >
+                    <FileIcon size={17} />
+                  </span>
+                  <span className="min-w-0 flex-1">
+                    <span className="block truncate text-[13px] font-medium">{message.attachment.name}</span>
+                    <span className="block text-[11px] opacity-75">{formatFileSize(message.attachment.size)}</span>
+                  </span>
+                  <Download size={16} className="shrink-0 opacity-75" />
+                </a>
+              )}
+
+              {message.body && (
+                <span className="whitespace-pre-wrap break-words text-[14.5px] leading-[21px]">
+                  {message.body}
+                  <span className="ml-2 inline-flex translate-y-1 items-center gap-1 align-bottom text-[11px] opacity-0">
+                    {formatBubbleTime(message.createdAt)}
+                    {isOwn && <StatusIcon status={message.status} />}
+                  </span>
                 </span>
-              </span>
+              )}
 
               <span
                 className={cn(
-                  "pointer-events-none absolute bottom-1.5 right-3 flex items-center gap-1 text-[11px]",
-                  isOwn ? "text-on-accent/80" : "text-secondary"
+                  "pointer-events-none absolute bottom-1.5 right-3 flex items-center gap-1 rounded-full text-[11px]",
+                  imageOnly ? "bg-black/45 px-1.5 py-0.5 text-white" : isOwn ? "text-on-accent/80" : "text-secondary"
                 )}
               >
                 {formatBubbleTime(message.createdAt)}
                 {isOwn && <StatusIcon status={message.status} />}
               </span>
+
+              {message.attachment?.kind === "image" && (
+                <Dialog open={lightboxOpen} onOpenChange={setLightboxOpen}>
+                  <DialogContent width={640} className="flex items-center justify-center bg-transparent p-2 shadow-none">
+                    {/* eslint-disable-next-line @next/next/no-img-element -- client-only data URL, not an optimizable asset */}
+                    <img
+                      src={message.attachment.url}
+                      alt={message.attachment.name}
+                      className="max-h-[80vh] w-auto rounded-md"
+                    />
+                  </DialogContent>
+                </Dialog>
+              )}
             </div>
           )}
 

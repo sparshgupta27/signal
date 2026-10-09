@@ -1,18 +1,21 @@
 "use client";
 
-import { useEffect, useRef } from "react";
+import { useEffect, useRef, useState } from "react";
 import { toast } from "sonner";
-import { Mic, Paperclip, Send, Smile, X } from "lucide-react";
-import type { Message } from "@/types";
+import { File as FileIcon, Mic, Paperclip, Send, Smile, X } from "lucide-react";
+import type { Message, MessageAttachment } from "@/types";
 import { IconButton } from "@/components/ui/IconButton";
 import { Menu, MenuContent, MenuItem, MenuTrigger } from "@/components/ui/Menu";
 import { senderDisplayName } from "@/lib/conversationDisplay";
+import { formatFileSize } from "@/lib/format";
+import { fileToChatImage, readFileAsDataUrl } from "@/lib/image";
 import { useUiStore } from "@/store/uiStore";
 import { useTyping } from "@/hooks/useTyping";
 import { useSendMessage } from "@/hooks/useSendMessage";
 import { cn } from "@/lib/cn";
 
 const QUICK_EMOJI = ["😀", "😂", "❤️", "👍", "🙏", "😮", "😢", "🔥", "🎉", "👀", "💯", "😅"];
+const MAX_ATTACHMENT_BYTES = 8 * 1024 * 1024;
 
 interface ComposerProps {
   conversationId: string;
@@ -27,7 +30,19 @@ export function Composer({ conversationId, canSend, replyTo, onCancelReply }: Co
   // chats never needs an effect to resync anything.
   const value = useUiStore((s) => s.drafts[conversationId] ?? "");
   const setDraft = useUiStore((s) => s.setDraft);
+  const [pendingAttachment, setPendingAttachment] = useState<MessageAttachment | null>(null);
+  // Resetting a half-picked attachment when the chat changes, via React's
+  // "adjust state while rendering" pattern — not an effect, since a half-
+  // picked photo for one conversation has no business in the next one and
+  // this has to happen before paint, not after.
+  const [attachmentConversationId, setAttachmentConversationId] = useState(conversationId);
+  if (conversationId !== attachmentConversationId) {
+    setAttachmentConversationId(conversationId);
+    setPendingAttachment(null);
+  }
   const textareaRef = useRef<HTMLTextAreaElement>(null);
+  const imageInputRef = useRef<HTMLInputElement>(null);
+  const fileInputRef = useRef<HTMLInputElement>(null);
   const { notifyTyping, stopTyping } = useTyping(conversationId);
   const { send } = useSendMessage(conversationId);
 
@@ -38,10 +53,13 @@ export function Composer({ conversationId, canSend, replyTo, onCancelReply }: Co
     el.style.height = `${Math.min(el.scrollHeight, 150)}px`;
   }, [value]);
 
+  const canSubmit = !!value.trim() || !!pendingAttachment;
+
   const handleSend = () => {
-    if (!value.trim()) return;
-    send(value, { replyToId: replyTo?.id });
+    if (!canSubmit) return;
+    send(value, { replyToId: replyTo?.id, attachment: pendingAttachment });
     setDraft(conversationId, "");
+    setPendingAttachment(null);
     onCancelReply();
     stopTyping();
     textareaRef.current?.focus();
@@ -68,6 +86,48 @@ export function Composer({ conversationId, canSend, replyTo, onCancelReply }: Co
     textareaRef.current?.focus();
   };
 
+  const handleImagePick = async (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    e.target.value = "";
+    if (!file) return;
+    if (!file.type.startsWith("image/")) {
+      toast("Please choose an image file");
+      return;
+    }
+    if (file.size > MAX_ATTACHMENT_BYTES) {
+      toast("Image is too large (max 8MB)");
+      return;
+    }
+    try {
+      const { url, width, height } = await fileToChatImage(file);
+      setPendingAttachment({ kind: "image", url, name: file.name, size: file.size, mimeType: file.type, width, height });
+    } catch {
+      toast("Couldn't read that image");
+    }
+  };
+
+  const handleFilePick = async (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    e.target.value = "";
+    if (!file) return;
+    if (file.size > MAX_ATTACHMENT_BYTES) {
+      toast("File is too large (max 8MB)");
+      return;
+    }
+    try {
+      const url = await readFileAsDataUrl(file);
+      setPendingAttachment({
+        kind: "file",
+        url,
+        name: file.name,
+        size: file.size,
+        mimeType: file.type || "application/octet-stream",
+      });
+    } catch {
+      toast("Couldn't read that file");
+    }
+  };
+
   if (!canSend) {
     return (
       <div className="flex shrink-0 items-center justify-center border-t border-divider bg-app px-4 py-4">
@@ -80,6 +140,9 @@ export function Composer({ conversationId, canSend, replyTo, onCancelReply }: Co
 
   return (
     <div className="shrink-0 border-t border-divider bg-app">
+      <input ref={imageInputRef} type="file" accept="image/*" className="hidden" onChange={handleImagePick} />
+      <input ref={fileInputRef} type="file" className="hidden" onChange={handleFilePick} />
+
       {replyTo && (
         <div className="flex items-center gap-2 border-b border-divider bg-sidebar px-4 py-2">
           <div className="min-w-0 flex-1 border-l-2 border-accent pl-2">
@@ -99,6 +162,31 @@ export function Composer({ conversationId, canSend, replyTo, onCancelReply }: Co
         </div>
       )}
 
+      {pendingAttachment && (
+        <div className="flex items-center gap-2 border-b border-divider bg-sidebar px-4 py-2">
+          {pendingAttachment.kind === "image" ? (
+            // eslint-disable-next-line @next/next/no-img-element -- client-only data URL, not an optimizable asset
+            <img src={pendingAttachment.url} alt="" className="h-10 w-10 rounded-md object-cover" />
+          ) : (
+            <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-md bg-row-hover text-secondary">
+              <FileIcon size={18} />
+            </div>
+          )}
+          <div className="min-w-0 flex-1">
+            <div className="truncate text-[12.5px] font-medium text-primary">{pendingAttachment.name}</div>
+            <div className="text-[11.5px] text-secondary">{formatFileSize(pendingAttachment.size)}</div>
+          </div>
+          <button
+            type="button"
+            aria-label="Remove attachment"
+            onClick={() => setPendingAttachment(null)}
+            className="rounded-full p-1 text-secondary hover:bg-row-hover hover:text-primary"
+          >
+            <X size={16} />
+          </button>
+        </div>
+      )}
+
       <div className="flex items-end gap-1.5 p-3">
         <Menu>
           <MenuTrigger asChild>
@@ -107,10 +195,8 @@ export function Composer({ conversationId, canSend, replyTo, onCancelReply }: Co
             </IconButton>
           </MenuTrigger>
           <MenuContent align="start" side="top">
-            <MenuItem onSelect={() => toast("Photo & video sharing is coming soon")}>
-              Photo or video
-            </MenuItem>
-            <MenuItem onSelect={() => toast("File sharing is coming soon")}>File</MenuItem>
+            <MenuItem onSelect={() => imageInputRef.current?.click()}>Photo</MenuItem>
+            <MenuItem onSelect={() => fileInputRef.current?.click()}>File</MenuItem>
           </MenuContent>
         </Menu>
 
@@ -153,15 +239,15 @@ export function Composer({ conversationId, canSend, replyTo, onCancelReply }: Co
         </div>
 
         <IconButton
-          label={value.trim() ? "Send message" : "Record voice message"}
+          label={canSubmit ? "Send message" : "Record voice message"}
           showTooltip={false}
-          onClick={value.trim() ? handleSend : () => toast("Voice messages are coming soon")}
+          onClick={canSubmit ? handleSend : () => toast("Voice messages are coming soon")}
           className={cn(
             "transition-colors duration-[120ms] ease-signal",
-            value.trim() && "bg-accent text-on-accent hover:bg-accent-hover hover:text-on-accent"
+            canSubmit && "bg-accent text-on-accent hover:bg-accent-hover hover:text-on-accent"
           )}
         >
-          {value.trim() ? <Send size={18} strokeWidth={2} /> : <Mic size={20} strokeWidth={1.75} />}
+          {canSubmit ? <Send size={18} strokeWidth={2} /> : <Mic size={20} strokeWidth={1.75} />}
         </IconButton>
       </div>
     </div>

@@ -112,6 +112,8 @@ function toSummary(message: Message): ConversationSummary {
     type: message.type,
     createdAt: message.createdAt,
     deletedAt: message.deletedAt ?? null,
+    attachmentKind: message.attachment?.kind ?? null,
+    attachmentName: message.attachment?.name ?? null,
   };
 }
 

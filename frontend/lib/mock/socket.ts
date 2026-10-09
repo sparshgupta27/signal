@@ -1,4 +1,4 @@
-import type { Message } from "@/types";
+import type { Message, MessageAttachment } from "@/types";
 import type { WsEventData, WsEventType } from "@/types/ws";
 import { CURRENT_USER_ID, users } from "./data";
 import * as store from "./store";
@@ -41,7 +41,15 @@ class MockSocket {
   }
 
   /** Client → server: send a text message. Persists immediately (optimistic) then simulates the receipt lifecycle. */
-  sendMessage(conversationId: string, input: { clientId: string; body: string; replyToId?: string | null }) {
+  sendMessage(
+    conversationId: string,
+    input: {
+      clientId: string;
+      body: string;
+      replyToId?: string | null;
+      attachment?: MessageAttachment | null;
+    }
+  ) {
     const message: Message = {
       id: input.clientId,
       clientId: input.clientId,
@@ -50,6 +58,7 @@ class MockSocket {
       type: "text",
       body: input.body,
       replyToId: input.replyToId ?? null,
+      attachment: input.attachment ?? null,
       reactions: [],
       status: "sending",
       createdAt: new Date().toISOString(),
