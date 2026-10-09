@@ -108,7 +108,9 @@ def build_conversation_out(
     )
 
 
-def list_conversations_for_user(db: Session, user_id: str) -> list[schemas.ConversationOut]:
+def _list_conversations_for_user(
+    db: Session, user_id: str, *, archived: bool
+) -> list[schemas.ConversationOut]:
     rows = (
         db.execute(
             select(models.Conversation)
@@ -125,7 +127,7 @@ def list_conversations_for_user(db: Session, user_id: str) -> list[schemas.Conve
         .all()
     )
     out = [build_conversation_out(db, c, user_id) for c in rows]
-    out = [c for c in out if not c.is_archived]
+    out = [c for c in out if c.is_archived == archived]
     out.sort(
         key=lambda c: (
             not c.is_pinned,
@@ -133,6 +135,14 @@ def list_conversations_for_user(db: Session, user_id: str) -> list[schemas.Conve
         )
     )
     return out
+
+
+def list_conversations_for_user(db: Session, user_id: str) -> list[schemas.ConversationOut]:
+    return _list_conversations_for_user(db, user_id, archived=False)
+
+
+def list_archived_conversations_for_user(db: Session, user_id: str) -> list[schemas.ConversationOut]:
+    return _list_conversations_for_user(db, user_id, archived=True)
 
 
 def get_or_create_direct(db: Session, user_id: str, other_id: str) -> models.Conversation:

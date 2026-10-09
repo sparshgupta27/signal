@@ -92,7 +92,7 @@ function mapAttachment(raw: RawAttachment): MessageAttachment {
 
 /** The backend supports several attachments per message; the UI only ever
  * sends one, so only the first is surfaced here. */
-function mapMessage(raw: Message & { attachments?: RawAttachment[] }): Message {
+export function mapMessage(raw: Message & { attachments?: RawAttachment[] }): Message {
   const { attachments, ...rest } = raw;
   return {
     ...rest,
@@ -165,6 +165,11 @@ export function sortConversations(list: Conversation[]): Conversation[] {
 
 export async function getConversations(): Promise<Conversation[]> {
   const list = await request<Conversation[]>("/api/v1/conversations");
+  return sortConversations(list);
+}
+
+export async function getArchivedConversations(): Promise<Conversation[]> {
+  const list = await request<Conversation[]>("/api/v1/conversations/archived");
   return sortConversations(list);
 }
 

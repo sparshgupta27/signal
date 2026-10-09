@@ -4,7 +4,7 @@ import { toast } from "sonner";
 import type { Conversation } from "@/types";
 import * as api from "@/lib/api";
 import { formatDisappearingDuration } from "@/lib/format";
-import { conversationsQueryKey } from "./useConversations";
+import { archivedConversationsQueryKey, conversationsQueryKey } from "./useConversations";
 
 /** Chat-list row actions (pin, mute, read state, archive, delete). */
 export function useConversationActions() {
@@ -71,6 +71,20 @@ export function useConversationActions() {
     [removeFromList]
   );
 
+  const unarchive = useCallback(
+    async (conversation: Conversation) => {
+      const updated = await api.setConversationFlags(conversation.id, { isArchived: false });
+      queryClient.setQueryData<Conversation[]>(archivedConversationsQueryKey, (prev) =>
+        prev ? prev.filter((c) => c.id !== conversation.id) : prev
+      );
+      queryClient.setQueryData<Conversation[]>(conversationsQueryKey, (prev) =>
+        prev ? api.sortConversations([...prev.filter((c) => c.id !== updated.id), updated]) : prev
+      );
+      toast("Chat unarchived");
+    },
+    [queryClient]
+  );
+
   const remove = useCallback(
     async (conversation: Conversation) => {
       await api.setConversationFlags(conversation.id, { isArchived: true });
@@ -98,5 +112,5 @@ export function useConversationActions() {
     }
   }, []);
 
-  return { togglePin, toggleMute, toggleRead, archive, remove, setDisappearing };
+  return { togglePin, toggleMute, toggleRead, archive, unarchive, remove, setDisappearing };
 }

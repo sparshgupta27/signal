@@ -1,5 +1,6 @@
 import type { Message, MessageAttachment } from "@/types";
 import type { WsEvent, WsEventData, WsEventType } from "@/types/ws";
+import { mapMessage } from "./api";
 import { getAccessToken, getCurrentUserId, subscribeSession } from "./session";
 
 /**
@@ -78,6 +79,15 @@ class WsClient {
       try {
         parsed = JSON.parse(event.data);
       } catch {
+        return;
+      }
+      // The wire shape for a message (attachments: [...] plural, bare
+      // storage paths) differs from the frontend's Message type (attachment:
+      // singular, full URLs) exactly like REST responses do — api.ts maps
+      // those via mapMessage(), so live WS messages need the same pass or
+      // every attachment silently vanishes the moment it arrives live.
+      if (parsed.type === "message.new") {
+        this.emit("message.new", { message: mapMessage(parsed.data.message) });
         return;
       }
       this.emit(parsed.type, parsed.data as never);

@@ -15,6 +15,16 @@ def list_conversations(user: models.User = Depends(get_current_user), db: Sessio
     return conversation_service.list_conversations_for_user(db, user.id)
 
 
+# Must be registered before /{conversation_id} — otherwise "archived" would
+# be swallowed as a conversation id (FastAPI matches routes in registration
+# order, not by specificity).
+@router.get("/archived", response_model=list[schemas.ConversationOut])
+def list_archived_conversations(
+    user: models.User = Depends(get_current_user), db: Session = Depends(get_db)
+):
+    return conversation_service.list_archived_conversations_for_user(db, user.id)
+
+
 @router.get("/{conversation_id}", response_model=schemas.ConversationOut)
 def get_conversation(
     conversation_id: str,

@@ -2,11 +2,12 @@
 
 import { useEffect, useMemo, useRef, useState } from "react";
 import { AnimatePresence } from "framer-motion";
+import { ArchiveX, ChevronLeft, Inbox } from "lucide-react";
 import { ChatListHeader } from "@/components/chat-list/ChatListHeader";
 import { ChatListItem } from "@/components/chat-list/ChatListItem";
 import { SearchField } from "@/components/chat-list/SearchField";
 import { SearchResults } from "@/components/chat-list/SearchResults";
-import { useConversations } from "@/hooks/useConversations";
+import { useArchivedConversations, useConversations } from "@/hooks/useConversations";
 import { useChatStore } from "@/store/chatStore";
 import { useUiStore } from "@/store/uiStore";
 import * as api from "@/lib/api";
@@ -92,8 +93,11 @@ export function ListPane({ fullWidth = false, compact = false }: ListPaneProps) 
   const [query, setQueryState] = useState("");
   const [unreadOnly, setUnreadOnly] = useState(false);
   const [groupsOnly, setGroupsOnly] = useState(false);
+  const [showArchived, setShowArchived] = useState(false);
   const [results, setResults] = useState<SearchResultsData | null>(null);
   const { conversations, isLoading } = useConversations();
+  const { conversations: archivedConversations, isLoading: isLoadingArchived } =
+    useArchivedConversations(true);
   const activeConversationId = useChatStore((s) => s.activeConversationId);
   const resizingRef = useRef(false);
   const searchInputRef = useRef<HTMLInputElement>(null);
@@ -171,7 +175,7 @@ export function ListPane({ fullWidth = false, compact = false }: ListPaneProps) 
         <SearchField ref={searchInputRef} value={query} onChange={setQuery} />
       </div>
 
-      {!isSearching && (
+      {!isSearching && !showArchived && (
         <div className="flex items-center gap-2 px-3 pb-2">
           <FilterChip
             label="All"
@@ -186,12 +190,55 @@ export function ListPane({ fullWidth = false, compact = false }: ListPaneProps) 
         </div>
       )}
 
+      {!isSearching && !showArchived && archivedConversations.length > 0 && (
+        <button
+          type="button"
+          onClick={() => setShowArchived(true)}
+          className="flex items-center gap-3 px-4 py-2.5 text-left hover:bg-row-hover"
+        >
+          <span className="flex h-9 w-9 shrink-0 items-center justify-center rounded-full bg-row-hover text-secondary">
+            <Inbox size={17} />
+          </span>
+          <span className="flex-1 text-[14px] font-medium text-primary">Archived</span>
+          <span className="shrink-0 text-[12px] text-secondary">{archivedConversations.length}</span>
+        </button>
+      )}
+
+      {!isSearching && showArchived && (
+        <div className="flex items-center gap-2 px-3 pb-2">
+          <button
+            type="button"
+            onClick={() => setShowArchived(false)}
+            aria-label="Back"
+            className="flex h-8 w-8 shrink-0 items-center justify-center rounded-full text-secondary hover:bg-row-hover hover:text-primary"
+          >
+            <ChevronLeft size={18} />
+          </button>
+          <span className="text-[14px] font-semibold text-primary">Archived chats</span>
+        </div>
+      )}
+
       <div className="min-h-0 flex-1 overflow-y-auto pb-2">
         {isSearching ? (
           results ? (
             <SearchResults results={results} query={query} />
           ) : (
             <ListSkeleton />
+          )
+        ) : showArchived ? (
+          isLoadingArchived ? (
+            <ListSkeleton />
+          ) : archivedConversations.length === 0 ? (
+            <div className="flex h-full flex-col items-center justify-center gap-2 px-8 text-center">
+              <ArchiveX size={22} className="text-secondary" />
+              <p className="text-[13.5px] text-secondary">No archived chats</p>
+            </div>
+          ) : (
+            <AnimatePresence initial={false}>
+              {archivedConversations.map((c) => (
+                <ChatListItem key={c.id} conversation={c} isActive={c.id === activeConversationId} />
+              ))}
+            </AnimatePresence>
           )
         ) : isLoading ? (
           <ListSkeleton />

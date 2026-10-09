@@ -12,9 +12,11 @@ export function StatusIcon({ status, className }: { status: MessageStatus; class
     case "delivered":
       return <CheckCheck size={14} className={common} />;
     case "read":
-      // Filled (not colour) is how Signal distinguishes read from delivered —
-      // outgoing bubbles are already accent-blue, so a tint would just vanish.
-      return <CheckCheck size={14} fill="currentColor" className={common} />;
+      // Lucide's checkmarks are open stroke paths — filling them (rather
+      // than just coloring) renders as a solid blob, not a crisp check.
+      // Distinguishing read from delivered is the caller's job (it controls
+      // the dimmed vs. full-strength text color via className).
+      return <CheckCheck size={14} className={common} />;
     case "failed":
       return <AlertCircle size={14} className={cn(common, "text-danger")} />;
     default:

@@ -41,7 +41,7 @@ export function ChatListItem({ conversation, isActive }: ChatListItemProps) {
   const presence = usePresence(conversation.type === "direct" ? otherId : undefined);
   const typingUsers = useTypingUsers(conversation.id);
   const isTyping = typingUsers.length > 0;
-  const { togglePin, toggleMute, toggleRead, archive, remove } = useConversationActions();
+  const { togglePin, toggleMute, toggleRead, archive, unarchive, remove } = useConversationActions();
 
   return (
     <ContextMenu>
@@ -109,7 +109,11 @@ export function ChatListItem({ conversation, isActive }: ChatListItemProps) {
             )}
           </ContextMenuSubContent>
         </ContextMenuSub>
-        <ContextMenuItem onSelect={() => archive(conversation)}>Archive chat</ContextMenuItem>
+        <ContextMenuItem
+          onSelect={() => (conversation.isArchived ? unarchive(conversation) : archive(conversation))}
+        >
+          {conversation.isArchived ? "Unarchive chat" : "Archive chat"}
+        </ContextMenuItem>
         <ContextMenuSeparator />
         <ContextMenuItem danger onSelect={() => remove(conversation)}>
           Delete chat
