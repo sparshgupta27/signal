@@ -20,6 +20,12 @@ import { SETTINGS_SECTIONS } from "@/components/settings/SettingsNav";
 import { useMyProfile, useUpdateMyProfile } from "@/hooks/useMyProfile";
 import { useSession } from "@/hooks/useSession";
 import { ApiError } from "@/lib/api";
+import {
+  getNotificationPref,
+  isNotificationSupported,
+  requestNotificationPermission,
+  setNotificationPref,
+} from "@/lib/notifications";
 
 const STATUS_SUGGESTIONS = ["Available", "Busy", "At work", "At the gym", "Sleeping", "In a meeting"];
 
@@ -76,9 +82,33 @@ export default function SettingsSectionPage({
   };
 
   const [enterToSend, setEnterToSend] = useState(true);
-  const [notificationsEnabled, setNotificationsEnabled] = useState(true);
+  const [notificationsEnabled, setNotificationsEnabled] = useState(() => getNotificationPref());
   const [readReceipts, setReadReceipts] = useState(true);
   const [typingIndicators, setTypingIndicators] = useState(true);
+
+  // Applies immediately, like show-last-seen below — this one genuinely
+  // gates whether a real browser Notification fires (lib/notifications.ts),
+  // so it's reality, not a draft field waiting on Save.
+  const handleNotificationsChange = async (checked: boolean) => {
+    if (!checked) {
+      setNotificationPref(false);
+      setNotificationsEnabled(false);
+      return;
+    }
+    if (!isNotificationSupported()) {
+      toast("Your browser doesn't support notifications");
+      return;
+    }
+    const permission = await requestNotificationPermission();
+    if (permission !== "granted") {
+      toast("Notifications blocked — enable them in your browser's site settings");
+      setNotificationPref(false);
+      setNotificationsEnabled(false);
+      return;
+    }
+    setNotificationPref(true);
+    setNotificationsEnabled(true);
+  };
 
   // Unlike name/about/avatar, this applies immediately on toggle rather than
   // batching into the profile form's Save — it's a privacy setting, not a
@@ -211,7 +241,7 @@ export default function SettingsSectionPage({
               control={
                 <Switch
                   checked={notificationsEnabled}
-                  onCheckedChange={setNotificationsEnabled}
+                  onCheckedChange={handleNotificationsChange}
                   label="Enable notifications"
                 />
               }

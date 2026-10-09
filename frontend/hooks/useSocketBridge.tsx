@@ -7,6 +7,7 @@ import { toast } from "sonner";
 import type { Conversation } from "@/types";
 import * as api from "@/lib/api";
 import { getCurrentUserId, getRefreshToken, setTokens } from "@/lib/session";
+import { showMessageNotification } from "@/lib/notifications";
 import { getUser, getUsersVersion, primeUser, primeUsers, subscribeUsers } from "@/lib/users";
 import { sortConversations } from "@/lib/api";
 import { wsClient } from "@/lib/ws";
@@ -138,6 +139,15 @@ export function useSocketBridge() {
         if (message.senderId) api.getUserById(message.senderId).then(primeUser).catch(() => {});
         return;
       }
+
+      const notificationTitle =
+        conversation.type === "group" ? `${sender.name} in ${conversation.name}` : sender.name;
+      showMessageNotification({
+        title: notificationTitle,
+        body: message.body || "Sent an attachment",
+        icon: sender.avatarUrl ?? undefined,
+        onClick: () => router.push(`/chat/${message.conversationId}`),
+      });
 
       toast.custom(() => (
         <button
