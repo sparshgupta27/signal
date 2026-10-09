@@ -48,3 +48,33 @@ async def broadcast_message_status(
     }
     for uid in member_ids:
         await manager.send_to_user(uid, payload)
+
+
+async def broadcast_message_deleted(
+    member_ids: list[str], message_id: str, conversation_id: str, deleted_at: datetime
+) -> None:
+    payload = {
+        "type": "message.deleted",
+        "data": {
+            "messageId": message_id,
+            "conversationId": conversation_id,
+            "deletedAt": deleted_at.isoformat(),
+        },
+    }
+    for uid in member_ids:
+        await manager.send_to_user(uid, payload)
+
+
+async def broadcast_reaction_updated(
+    member_ids: list[str], message_id: str, conversation_id: str, reactions: list[dict]
+) -> None:
+    payload = {
+        "type": "reaction.updated",
+        "data": {
+            "messageId": message_id,
+            "conversationId": conversation_id,
+            "reactions": reactions,
+        },
+    }
+    for uid in member_ids:
+        await manager.send_to_user(uid, payload)

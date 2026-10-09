@@ -9,6 +9,9 @@ class Settings(BaseSettings):
     jwt_algorithm: str = "HS256"
     access_token_expire_minutes: int = 60 * 24 * 7  # 7 days
     cors_origins: list[str] = ["http://localhost:3000"]
+    upload_dir: str = "./uploads"
+    max_upload_bytes: int = 10 * 1024 * 1024  # 10MB
+    disappearing_sweep_interval_seconds: float = 5.0
 
 
 settings = Settings()

@@ -103,8 +103,49 @@ class Message(Base):
     system_event: Mapped[dict | None] = mapped_column(JSON, nullable=True)
     created_at: Mapped[datetime] = mapped_column(default=utcnow)
     deleted_at: Mapped[datetime | None] = mapped_column(nullable=True)
+    # Set once, at send time, from the conversation's disappearing_seconds AT
+    # THAT MOMENT — never recomputed from the live timer later, so changing
+    # the timer afterward can't retroactively expire old messages.
+    expires_at: Mapped[datetime | None] = mapped_column(nullable=True)
 
-    __table_args__ = (Index("ix_messages_conv_created", "conversation_id", "created_at"),)
+    __table_args__ = (
+        Index("ix_messages_conv_created", "conversation_id", "created_at"),
+        Index("ix_messages_expires_at", "expires_at"),
+    )
+
+
+class Attachment(Base):
+    __tablename__ = "attachments"
+
+    id: Mapped[str] = mapped_column(primary_key=True, default=gen_id)
+    # Nullable until the message it belongs to is actually sent — uploaded
+    # first (POST /uploads), linked to a message second (POST .../messages).
+    message_id: Mapped[str | None] = mapped_column(
+        ForeignKey("messages.id", ondelete="CASCADE"), nullable=True
+    )
+    uploader_id: Mapped[str] = mapped_column(ForeignKey("users.id", ondelete="CASCADE"))
+    file_name: Mapped[str] = mapped_column(nullable=False)
+    mime_type: Mapped[str] = mapped_column(nullable=False)
+    size_bytes: Mapped[int] = mapped_column(nullable=False)
+    # Path on disk (under settings.upload_dir), not a public URL — served
+    # through GET /uploads/{id} so membership can be checked first.
+    storage_path: Mapped[str] = mapped_column(nullable=False)
+    width: Mapped[int | None] = mapped_column(nullable=True)
+    height: Mapped[int | None] = mapped_column(nullable=True)
+    created_at: Mapped[datetime] = mapped_column(default=utcnow)
+
+    __table_args__ = (Index("ix_attachments_message", "message_id"),)
+
+
+class MessageReaction(Base):
+    __tablename__ = "message_reactions"
+
+    message_id: Mapped[str] = mapped_column(
+        ForeignKey("messages.id", ondelete="CASCADE"), primary_key=True
+    )
+    user_id: Mapped[str] = mapped_column(ForeignKey("users.id", ondelete="CASCADE"), primary_key=True)
+    emoji: Mapped[str] = mapped_column(nullable=False)
+    created_at: Mapped[datetime] = mapped_column(default=utcnow)
 
 
 class MessageReceipt(Base):

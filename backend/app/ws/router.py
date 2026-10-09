@@ -86,7 +86,8 @@ async def _handle_send(db: Session, user_id: str, data: dict) -> None:
     client_id = data.get("clientId")
     body = (data.get("body") or "").strip()
     reply_to_id = data.get("replyToId")
-    if not conversation_id or not client_id or not body:
+    attachment_ids = data.get("attachmentIds") or []
+    if not conversation_id or not client_id or (not body and not attachment_ids):
         return
 
     participant = conversation_service.get_participant(db, conversation_id, user_id)
@@ -96,7 +97,9 @@ async def _handle_send(db: Session, user_id: str, data: dict) -> None:
     if not conversation:
         return
 
-    message = message_service.create_message(db, conversation, user_id, client_id, body, reply_to_id)
+    message = message_service.create_message(
+        db, conversation, user_id, client_id, body, reply_to_id, attachment_ids
+    )
     member_ids = conversation_service.active_member_ids(db, conversation_id)
     await broadcast_message_new(db, message, member_ids)
     await broadcast_conversation_updated(db, conversation, member_ids)

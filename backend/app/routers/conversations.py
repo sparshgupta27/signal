@@ -5,6 +5,7 @@ from .. import models, schemas
 from ..core.database import get_db
 from ..core.deps import get_current_user
 from ..services import conversation_service
+from ..ws.broadcast import broadcast_conversation_updated, broadcast_message_new
 
 router = APIRouter(prefix="/api/v1/conversations", tags=["conversations"])
 
@@ -23,6 +24,9 @@ def get_conversation(
     conversation = db.get(models.Conversation, conversation_id)
     if not conversation:
         raise HTTPException(404, "Not found")
+    participant = conversation_service.get_participant(db, conversation_id, user.id)
+    if not participant:
+        raise HTTPException(403, "Not a member")
     return conversation_service.build_conversation_out(db, conversation, user.id)
 
 
@@ -33,6 +37,28 @@ def create_direct(
     db: Session = Depends(get_db),
 ):
     conversation = conversation_service.get_or_create_direct(db, user.id, body.user_id)
+    return conversation_service.build_conversation_out(db, conversation, user.id)
+
+
+@router.patch("/{conversation_id}", response_model=schemas.ConversationOut)
+async def update_conversation(
+    conversation_id: str,
+    body: schemas.UpdateConversationIn,
+    user: models.User = Depends(get_current_user),
+    db: Session = Depends(get_db),
+):
+    conversation = db.get(models.Conversation, conversation_id)
+    if not conversation:
+        raise HTTPException(404, "Not found")
+
+    if "disappearing_seconds" in body.model_fields_set:
+        message = conversation_service.set_disappearing(
+            db, conversation, user.id, body.disappearing_seconds
+        )
+        member_ids = conversation_service.active_member_ids(db, conversation_id)
+        await broadcast_message_new(db, message, member_ids)
+        await broadcast_conversation_updated(db, conversation, member_ids)
+
     return conversation_service.build_conversation_out(db, conversation, user.id)
 
 

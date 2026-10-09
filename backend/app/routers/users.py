@@ -1,4 +1,4 @@
-from fastapi import APIRouter, Depends
+from fastapi import APIRouter, Depends, HTTPException
 from sqlalchemy import select
 from sqlalchemy.orm import Session
 
@@ -49,3 +49,18 @@ def lookup_user(
         return None
     is_contact = db.get(models.Contact, (user.id, found.id)) is not None
     return mappers.directory_user_out(found, is_contact)
+
+
+# Must stay registered after the literal /me and /lookup paths above — a
+# dynamic /{user_id} registered first would shadow them (FastAPI matches
+# routes in registration order, not by specificity).
+@router.get("/{user_id}", response_model=schemas.UserOut)
+def get_user(
+    user_id: str,
+    _user: models.User = Depends(get_current_user),
+    db: Session = Depends(get_db),
+):
+    target = db.get(models.User, user_id)
+    if not target:
+        raise HTTPException(404, "Not found")
+    return mappers.user_out(target)
