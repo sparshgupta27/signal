@@ -42,10 +42,6 @@ export function getPreviewText(conversation: Conversation): string {
       ? last.body
         ? `📷 ${last.body}`
         : "📷 Photo"
-      : last.attachmentKind === "video"
-        ? last.body
-          ? `🎥 ${last.body}`
-          : "🎥 Video"
       : last.attachmentKind === "file"
         ? `📎 ${last.attachmentName ?? last.body ?? "File"}`
         : last.body;
@@ -56,11 +52,3 @@ export function senderDisplayName(message: Message): string {
   if (message.senderId === getCurrentUserId()) return "You";
   return getUser(message.senderId)?.name ?? "Unknown";
 }
-
-export function avatarColorFor(userId: string | null | undefined): number {
-  if (!userId) return 0;
-  let hash = 0;
-  for (let i = 0; i < userId.length; i++) hash = (hash * 31 + userId.charCodeAt(i)) >>> 0;
-  return (hash % 12) + 1;
-}
-

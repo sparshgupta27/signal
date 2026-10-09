@@ -234,9 +234,7 @@ export function MessageList({
           })
         )}
 
-        {typingUsers.length > 0 && (
-          <TypingBubble typingUserIds={typingUsers} isGroup={isGroup} />
-        )}
+        {typingUsers.length > 0 && <TypingBubble />}
       </div>
 
       {!isAtBottom && (

@@ -78,25 +78,6 @@ def build_conversation_out(
     last_msg = _last_message(db, conversation.id)
     last_message_out = None
     if last_msg:
-        att_kind = None
-        att_name = None
-        first_att = (
-            db.execute(
-                select(models.Attachment)
-                .where(models.Attachment.message_id == last_msg.id)
-                .limit(1)
-            )
-            .scalar_one_or_none()
-        )
-        if first_att:
-            if first_att.mime_type.startswith("image/"):
-                att_kind = "image"
-            elif first_att.mime_type.startswith("video/"):
-                att_kind = "video"
-            else:
-                att_kind = "file"
-            att_name = first_att.file_name
-
         last_message_out = schemas.ConversationSummaryOut(
             id=last_msg.id,
             body=last_msg.body,
@@ -104,8 +85,6 @@ def build_conversation_out(
             type=last_msg.type,
             created_at=last_msg.created_at,
             deleted_at=last_msg.deleted_at,
-            attachment_kind=att_kind,
-            attachment_name=att_name,
         )
 
     return schemas.ConversationOut(

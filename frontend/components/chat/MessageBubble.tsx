@@ -223,7 +223,12 @@ export function MessageBubble({
                 )}
               >
                 {formatBubbleTime(message.createdAt)}
-                {isOwn && <StatusIcon status={message.status} />}
+                {isOwn && (
+                  <StatusIcon
+                    status={message.status}
+                    className={message.status === "read" ? "text-on-accent" : undefined}
+                  />
+                )}
               </span>
 
               {message.attachment?.kind === "image" && (

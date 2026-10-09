@@ -27,7 +27,6 @@ import {
 import { formatListTime } from "@/lib/format";
 import { usePresence, useTypingUsers } from "@/hooks/usePresence";
 import { useConversationActions } from "@/hooks/useConversationActions";
-import { getUser } from "@/lib/users";
 
 interface ChatListItemProps {
   conversation: Conversation;
@@ -43,13 +42,6 @@ export function ChatListItem({ conversation, isActive }: ChatListItemProps) {
   const typingUsers = useTypingUsers(conversation.id);
   const isTyping = typingUsers.length > 0;
   const { togglePin, toggleMute, toggleRead, archive, unarchive, remove } = useConversationActions();
-
-  const typingLabel =
-    conversation.type === "group"
-      ? typingUsers.length === 1
-        ? `${getUser(typingUsers[0])?.name.split(" ")[0] ?? "Someone"} is typing…`
-        : `${getUser(typingUsers[0])?.name.split(" ")[0] ?? "Someone"}, ${getUser(typingUsers[1])?.name.split(" ")[0] ?? "Someone"} typing…`
-      : "typing…";
 
   return (
     <ContextMenu>
@@ -78,7 +70,7 @@ export function ChatListItem({ conversation, isActive }: ChatListItemProps) {
               </div>
               <div className="flex items-center justify-between gap-2">
                 {isTyping ? (
-                  <span className="truncate text-[13.5px] italic text-accent">{typingLabel}</span>
+                  <span className="truncate text-[13.5px] italic text-accent">typing…</span>
                 ) : (
                   <span className="truncate text-[13.5px] text-secondary">
                     {getPreviewText(conversation)}

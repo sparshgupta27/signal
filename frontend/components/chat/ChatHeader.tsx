@@ -15,7 +15,6 @@ import {
   getConversationTitle,
   getOtherMemberId,
 } from "@/lib/conversationDisplay";
-import { getUser } from "@/lib/users";
 import { formatLastSeenLabel } from "@/lib/format";
 import { usePresence, useTypingUsers } from "@/hooks/usePresence";
 import { useConversationActions } from "@/hooks/useConversationActions";
@@ -35,18 +34,9 @@ export function ChatHeader({ conversation }: { conversation: Conversation }) {
   const isMobile = useIsMobile();
   const router = useRouter();
 
-  const typingSubtitle =
-    conversation.type === "group"
-      ? typingUsers.length === 1
-        ? `${getUser(typingUsers[0])?.name ?? "Someone"} is typing…`
-        : typingUsers.length === 2
-          ? `${getUser(typingUsers[0])?.name ?? "Someone"} and ${getUser(typingUsers[1])?.name ?? "Someone"} are typing…`
-          : `${getUser(typingUsers[0])?.name ?? "Someone"} and ${typingUsers.length - 1} others are typing…`
-      : "typing…";
-
   const subtitle =
     typingUsers.length > 0
-      ? typingSubtitle
+      ? "typing…"
       : conversation.type === "direct"
         ? presence.isOnline
           ? "Online"
