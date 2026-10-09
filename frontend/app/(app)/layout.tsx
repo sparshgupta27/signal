@@ -40,7 +40,12 @@ function AppShell({ children }: { children: React.ReactNode }) {
     // view gets the full screen, matching how Signal/WhatsApp behave.
     const showTabBar = !inChatThread && !inSettingsSection;
     return (
-      <div className="flex h-screen w-screen flex-col overflow-hidden bg-app">
+      // h-dvh, not h-screen: 100vh is measured against the viewport with the
+      // browser's address bar collapsed, but on load it's usually expanded,
+      // so the real visible area is shorter — the tab bar renders below the
+      // fold until a scroll collapses the chrome. dvh tracks the actual
+      // visible viewport and updates as the chrome shows/hides.
+      <div className="flex h-dvh w-screen flex-col overflow-hidden bg-app">
         <main className="flex min-w-0 flex-1 overflow-hidden">
           {pathname === "/" ? <ListPane fullWidth /> : children}
         </main>

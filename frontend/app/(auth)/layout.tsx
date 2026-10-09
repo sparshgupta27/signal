@@ -9,7 +9,7 @@ export default function AuthLayout({ children }: { children: React.ReactNode }) 
 
   return (
     <RedirectIfAuthed>
-      <div className="flex min-h-screen items-center justify-center bg-app px-4">
+      <div className="flex min-h-dvh items-center justify-center bg-app px-4">
         <div className="w-full max-w-[400px] overflow-hidden">
           <AnimatePresence mode="wait" initial={false}>
             <motion.div
