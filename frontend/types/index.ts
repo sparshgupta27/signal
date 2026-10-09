@@ -62,7 +62,7 @@ export interface MessageReaction {
   userId: string;
 }
 
-export type AttachmentKind = "image" | "file";
+export type AttachmentKind = "image" | "video" | "file";
 
 export interface MessageAttachment {
   kind: AttachmentKind;

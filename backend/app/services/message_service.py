@@ -7,7 +7,8 @@ from sqlalchemy.orm import Session
 from .. import mappers, models, schemas
 from ..core.config import settings
 from ..core.security import new_id
-from .conversation_service import active_member_ids
+from . import upload_service
+from .conversation_service import active_member_ids, get_participant
 
 
 def _delete_attachments(db: Session, message_id: str) -> None:
@@ -155,6 +156,40 @@ def create_message(
     db.commit()
     db.refresh(message)
     return message
+
+
+def forward_message(
+    db: Session, source: models.Message, sender_id: str, target_conversation_ids: list[str]
+) -> list[models.Message]:
+    """Forwards into each target the caller is actually a member of — any
+    id they're not a member of (or that doesn't exist) is silently
+    skipped rather than failing the whole batch, same spirit as the
+    multi-select picker that calls this not being able to offer a chat
+    the user isn't in anyway."""
+    source_attachments = list(
+        db.execute(
+            select(models.Attachment).where(models.Attachment.message_id == source.id)
+        ).scalars()
+    )
+
+    forwarded: list[models.Message] = []
+    for conversation_id in target_conversation_ids:
+        participant = get_participant(db, conversation_id, sender_id)
+        if not participant or participant.left_at is not None:
+            continue
+        conversation = db.get(models.Conversation, conversation_id)
+        if not conversation:
+            continue
+
+        attachment_ids = [
+            upload_service.duplicate_attachment(db, a, sender_id).id for a in source_attachments
+        ]
+        message = create_message(
+            db, conversation, sender_id, new_id("fwd-"), source.body, None, attachment_ids
+        )
+        forwarded.append(message)
+
+    return forwarded
 
 
 def mark_delivered(db: Session, user_id: str, message_ids: list[str]) -> list[models.Message]:

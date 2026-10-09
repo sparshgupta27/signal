@@ -11,7 +11,18 @@ from . import models  # noqa: F401 -- registers tables before create_all
 from .core.config import settings
 from .core.database import Base, SessionLocal, engine, ensure_columns
 from .core.limiter import limiter
-from .routers import auth, contacts, conversations, groups, messages, reactions, search, uploads, users
+from .routers import (
+    auth,
+    contacts,
+    conversations,
+    forward,
+    groups,
+    messages,
+    reactions,
+    search,
+    uploads,
+    users,
+)
 from .seeding import run_seed
 from .services import conversation_service, message_service
 from .ws.broadcast import broadcast_message_deleted
@@ -75,6 +86,7 @@ app.include_router(conversations.router)
 app.include_router(messages.router)
 app.include_router(groups.router)
 app.include_router(reactions.router)
+app.include_router(forward.router)
 app.include_router(uploads.router)
 app.include_router(search.router)
 app.include_router(ws_router)

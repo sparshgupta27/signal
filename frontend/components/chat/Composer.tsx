@@ -17,7 +17,7 @@ import { useSendMessage } from "@/hooks/useSendMessage";
 import { cn } from "@/lib/cn";
 
 const QUICK_EMOJI = ["😀", "😂", "❤️", "👍", "🙏", "😮", "😢", "🔥", "🎉", "👀", "💯", "😅"];
-const MAX_ATTACHMENT_BYTES = 8 * 1024 * 1024;
+const MAX_ATTACHMENT_BYTES = 50 * 1024 * 1024;
 
 type UploadedAttachment = MessageAttachment & { id: string };
 
@@ -111,19 +111,38 @@ export function Composer({ conversationId, canSend, replyTo, onCancelReply }: Co
     }
   };
 
+  // Video can't go through the canvas-resize pipeline fileToChatImage uses
+  // for images — there's no cheap client-side way to re-encode/shrink a
+  // video in the browser, so it uploads as-is.
+  const uploadVideoFile = async (file: File) => {
+    setUploading(true);
+    try {
+      const uploaded = await api.uploadAttachment(file);
+      setPendingAttachment(uploaded);
+    } catch {
+      toast("Couldn't upload that video");
+    } finally {
+      setUploading(false);
+    }
+  };
+
   const handleImagePick = async (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
     e.target.value = "";
     if (!file) return;
-    if (!file.type.startsWith("image/")) {
-      toast("Please choose an image file");
+    if (!file.type.startsWith("image/") && !file.type.startsWith("video/")) {
+      toast("Please choose a photo or video file");
       return;
     }
     if (file.size > MAX_ATTACHMENT_BYTES) {
-      toast("Image is too large (max 8MB)");
+      toast("That file is too large (max 50MB)");
       return;
     }
-    await uploadImageFile(file);
+    if (file.type.startsWith("video/")) {
+      await uploadVideoFile(file);
+    } else {
+      await uploadImageFile(file);
+    }
   };
 
   const handleCameraCapture = (file: File) => {
@@ -135,7 +154,7 @@ export function Composer({ conversationId, canSend, replyTo, onCancelReply }: Co
     e.target.value = "";
     if (!file) return;
     if (file.size > MAX_ATTACHMENT_BYTES) {
-      toast("File is too large (max 8MB)");
+      toast("File is too large (max 50MB)");
       return;
     }
     setUploading(true);
@@ -161,7 +180,13 @@ export function Composer({ conversationId, canSend, replyTo, onCancelReply }: Co
 
   return (
     <div className="shrink-0 border-t border-divider bg-app">
-      <input ref={imageInputRef} type="file" accept="image/*" className="hidden" onChange={handleImagePick} />
+      <input
+        ref={imageInputRef}
+        type="file"
+        accept="image/*,video/*"
+        className="hidden"
+        onChange={handleImagePick}
+      />
       <input ref={fileInputRef} type="file" className="hidden" onChange={handleFilePick} />
 
       {replyTo && (
@@ -195,6 +220,9 @@ export function Composer({ conversationId, canSend, replyTo, onCancelReply }: Co
           {pendingAttachment.kind === "image" ? (
             // eslint-disable-next-line @next/next/no-img-element -- authenticated remote URL, not an optimizable asset
             <img src={pendingAttachment.url} alt="" className="h-10 w-10 rounded-md object-cover" />
+          ) : pendingAttachment.kind === "video" ? (
+             
+            <video src={pendingAttachment.url} className="h-10 w-10 rounded-md object-cover" muted />
           ) : (
             <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-md bg-row-hover text-secondary">
               <FileIcon size={18} />
@@ -223,7 +251,7 @@ export function Composer({ conversationId, canSend, replyTo, onCancelReply }: Co
             </IconButton>
           </MenuTrigger>
           <MenuContent align="start" side="top">
-            <MenuItem onSelect={() => imageInputRef.current?.click()}>Photo</MenuItem>
+            <MenuItem onSelect={() => imageInputRef.current?.click()}>Photo & video</MenuItem>
             <MenuItem onSelect={() => setCameraOpen(true)}>Camera</MenuItem>
             <MenuItem onSelect={() => fileInputRef.current?.click()}>File</MenuItem>
           </MenuContent>

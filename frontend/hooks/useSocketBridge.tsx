@@ -76,6 +76,9 @@ export function useSocketBridge() {
     const offTyping = wsClient.on("typing", (data) => {
       if (data.userId === getCurrentUserId()) return;
       usePresenceStore.getState().setTyping(data.conversationId, data.userId, data.isTyping);
+      if (data.isTyping && !getUser(data.userId)) {
+        api.getUserById(data.userId).then(primeUser).catch(() => {});
+      }
 
       const key = `${data.conversationId}:${data.userId}`;
       const existing = typingTimers.current.get(key);

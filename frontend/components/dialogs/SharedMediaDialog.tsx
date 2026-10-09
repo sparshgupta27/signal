@@ -1,7 +1,7 @@
 "use client";
 
 import { useState } from "react";
-import { Download, File as FileIcon, ImageOff } from "lucide-react";
+import { Download, File as FileIcon, ImageOff, Play } from "lucide-react";
 import type { MessageAttachment } from "@/types";
 import { Dialog, DialogContent, DialogTitle } from "@/components/ui/Dialog";
 import { useSharedMedia } from "@/hooks/useSharedMedia";
@@ -41,6 +41,18 @@ export function SharedMediaDialog({ conversationId, open, onOpenChange }: Shared
                   {/* eslint-disable-next-line @next/next/no-img-element -- authenticated remote URL, not an optimizable asset */}
                   <img src={item.url} alt={item.name} className="h-full w-full object-cover" />
                 </button>
+              ) : item.kind === "video" ? (
+                <button
+                  key={i}
+                  type="button"
+                  onClick={() => setPreview(item)}
+                  className="relative aspect-square overflow-hidden rounded-md bg-sidebar"
+                >
+                  <video src={item.url} className="h-full w-full object-cover" muted preload="metadata" />
+                  <span className="absolute inset-0 flex items-center justify-center bg-black/20">
+                    <Play size={22} className="fill-white text-white" />
+                  </span>
+                </button>
               ) : (
                 <a
                   key={i}
@@ -61,8 +73,12 @@ export function SharedMediaDialog({ conversationId, open, onOpenChange }: Shared
         <DialogContent width={640} className="flex items-center justify-center bg-transparent p-2 shadow-none">
           {preview && (
             <div className="relative">
-              {/* eslint-disable-next-line @next/next/no-img-element -- authenticated remote URL, not an optimizable asset */}
-              <img src={preview.url} alt={preview.name} className="max-h-[80vh] w-auto rounded-md" />
+              {preview.kind === "video" ? (
+                <video src={preview.url} controls autoPlay className="max-h-[80vh] w-auto rounded-md" />
+              ) : (
+                // eslint-disable-next-line @next/next/no-img-element -- authenticated remote URL, not an optimizable asset
+                <img src={preview.url} alt={preview.name} className="max-h-[80vh] w-auto rounded-md" />
+              )}
               <a
                 href={preview.url}
                 download={preview.name}

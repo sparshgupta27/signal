@@ -233,6 +233,17 @@ export async function getMessages(
   return { messages: page.messages.map(mapMessage), hasMore: page.hasMore };
 }
 
+export async function forwardMessage(
+  messageId: string,
+  conversationIds: string[]
+): Promise<Message[]> {
+  const raw = await request<(Message & { attachments?: RawAttachment[] })[]>(
+    `/api/v1/messages/${messageId}/forward`,
+    { method: "POST", body: JSON.stringify({ conversationIds }) }
+  );
+  return raw.map(mapMessage);
+}
+
 export async function setReaction(messageId: string, emoji: string): Promise<void> {
   await request(`/api/v1/messages/${messageId}/reaction`, {
     method: "PUT",

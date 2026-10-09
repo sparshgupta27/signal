@@ -1,4 +1,5 @@
 import os
+import shutil
 
 from fastapi import UploadFile
 from sqlalchemy.orm import Session
@@ -35,6 +36,36 @@ def save_upload(
         storage_path=storage_name,
         width=width,
         height=height,
+    )
+    db.add(attachment)
+    db.commit()
+    db.refresh(attachment)
+    return attachment
+
+
+def duplicate_attachment(db: Session, source: models.Attachment, uploader_id: str) -> models.Attachment:
+    """A forwarded message gets its own copy of the file, not a second
+    reference to the original — matches real messaging apps (the original
+    being deleted/expired shouldn't take a forward down with it), and keeps
+    Attachment.message_id a clean one-to-one rather than needing a join
+    table for something that's rare in practice."""
+    _, ext = os.path.splitext(source.storage_path)
+    storage_name = f"{new_id()}{ext}"
+    shutil.copyfile(
+        os.path.join(settings.upload_dir, source.storage_path),
+        os.path.join(settings.upload_dir, storage_name),
+    )
+
+    attachment = models.Attachment(
+        id=new_id("att-"),
+        message_id=None,
+        uploader_id=uploader_id,
+        file_name=source.file_name,
+        mime_type=source.mime_type,
+        size_bytes=source.size_bytes,
+        storage_path=storage_name,
+        width=source.width,
+        height=source.height,
     )
     db.add(attachment)
     db.commit()

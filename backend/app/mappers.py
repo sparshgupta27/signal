@@ -26,7 +26,11 @@ def directory_user_out(
 
 
 def _attachment_kind(mime_type: str) -> str:
-    return "image" if mime_type.startswith("image/") else "file"
+    if mime_type.startswith("image/"):
+        return "image"
+    if mime_type.startswith("video/"):
+        return "video"
+    return "file"
 
 
 def attachment_out(attachment: models.Attachment) -> schemas.AttachmentOut:

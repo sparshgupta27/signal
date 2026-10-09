@@ -10,7 +10,7 @@ class Settings(BaseSettings):
     access_token_expire_minutes: int = 60 * 24 * 7  # 7 days
     cors_origins: list[str] = ["http://localhost:3000"]
     upload_dir: str = "./uploads"
-    max_upload_bytes: int = 10 * 1024 * 1024  # 10MB
+    max_upload_bytes: int = 50 * 1024 * 1024  # 50MB — generous enough for short video clips
     disappearing_sweep_interval_seconds: float = 5.0
 
 

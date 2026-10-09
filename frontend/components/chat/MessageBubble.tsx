@@ -5,6 +5,7 @@ import { Ban, CornerUpLeft, Download, File as FileIcon, MoreHorizontal, SmilePlu
 import type { Message } from "@/types";
 import { Avatar } from "@/components/ui/Avatar";
 import { Dialog, DialogContent } from "@/components/ui/Dialog";
+import { ForwardDialog } from "@/components/dialogs/ForwardDialog";
 import { StatusIcon } from "./StatusIcon";
 import { cn } from "@/lib/cn";
 import { formatBubbleTime, formatFileSize } from "@/lib/format";
@@ -58,6 +59,7 @@ export function MessageBubble({
   onScrollToMessage,
 }: MessageBubbleProps) {
   const [lightboxOpen, setLightboxOpen] = useState(false);
+  const [forwardOpen, setForwardOpen] = useState(false);
 
   if (message.deletedAt) {
     return (
@@ -72,7 +74,11 @@ export function MessageBubble({
 
   const emojiOnly = !message.attachment && isEmojiOnly(message.body);
   const reactionGroups = groupReactions(message.reactions);
-  const imageOnly = message.attachment?.kind === "image" && !message.body;
+  // Only images get the borderless/overlaid-timestamp treatment — video
+  // keeps normal bubble padding since native <video controls> already has
+  // its own control bar at the bottom, which our floating time/tick badge
+  // would otherwise sit on top of and compete with.
+  const mediaOnly = message.attachment?.kind === "image" && !message.body;
 
   const outgoingCorner = cn(
     !isLastInRun && "rounded-br-[5px]",
@@ -101,7 +107,15 @@ export function MessageBubble({
 
       <div className={cn("flex max-w-[85%] flex-col md:max-w-[65%]", isOwn ? "items-end" : "items-start")}>
         <div className="relative flex items-center gap-1.5">
-          {isOwn && <HoverToolbar message={message} onReply={onReply} onReact={onReact} align="left" />}
+          {isOwn && (
+            <HoverToolbar
+              message={message}
+              onReply={onReply}
+              onReact={onReact}
+              onForward={() => setForwardOpen(true)}
+              align="left"
+            />
+          )}
 
           {emojiOnly ? (
             <div className="px-1 py-0.5 text-[32px] leading-none">{message.body}</div>
@@ -109,7 +123,7 @@ export function MessageBubble({
             <div
               className={cn(
                 "relative rounded-bubble",
-                imageOnly ? "p-1" : "px-3 py-2",
+                mediaOnly ? "p-1" : "px-3 py-2",
                 isOwn ? ["bg-bubble-out text-on-accent", outgoingCorner] : ["bg-bubble-in text-primary", incomingCorner]
               )}
             >
@@ -155,6 +169,17 @@ export function MessageBubble({
                 </button>
               )}
 
+              {message.attachment?.kind === "video" && (
+                <div className={cn("overflow-hidden rounded-md", message.body && "mb-1.5")}>
+                  <video
+                    src={message.attachment.url}
+                    controls
+                    preload="metadata"
+                    className="max-h-[320px] max-w-[260px]"
+                  />
+                </div>
+              )}
+
               {message.attachment?.kind === "file" && (
                 <a
                   href={message.attachment.url}
@@ -194,16 +219,11 @@ export function MessageBubble({
               <span
                 className={cn(
                   "pointer-events-none absolute bottom-1.5 right-3 flex items-center gap-1 rounded-full text-[11px]",
-                  imageOnly ? "bg-black/45 px-1.5 py-0.5 text-white" : isOwn ? "text-on-accent/80" : "text-secondary"
+                  mediaOnly ? "bg-black/45 px-1.5 py-0.5 text-white" : isOwn ? "text-on-accent/80" : "text-secondary"
                 )}
               >
                 {formatBubbleTime(message.createdAt)}
-                {isOwn && (
-                  <StatusIcon
-                    status={message.status}
-                    className={message.status === "read" ? "text-on-accent" : undefined}
-                  />
-                )}
+                {isOwn && <StatusIcon status={message.status} />}
               </span>
 
               {message.attachment?.kind === "image" && (
@@ -221,7 +241,15 @@ export function MessageBubble({
             </div>
           )}
 
-          {!isOwn && <HoverToolbar message={message} onReply={onReply} onReact={onReact} align="right" />}
+          {!isOwn && (
+            <HoverToolbar
+              message={message}
+              onReply={onReply}
+              onReact={onReact}
+              onForward={() => setForwardOpen(true)}
+              align="right"
+            />
+          )}
         </div>
 
         {reactionGroups.length > 0 && (
@@ -245,6 +273,8 @@ export function MessageBubble({
           </div>
         )}
       </div>
+
+      <ForwardDialog message={forwardOpen ? message : null} onOpenChange={setForwardOpen} />
     </div>
   );
 }
@@ -253,11 +283,13 @@ function HoverToolbar({
   message,
   onReply,
   onReact,
+  onForward,
   align,
 }: {
   message: Message;
   onReply?: (message: Message) => void;
   onReact?: (message: Message, emoji: string) => void;
+  onForward?: (message: Message) => void;
   align: "left" | "right";
 }) {
   return (
@@ -313,7 +345,10 @@ function HoverToolbar({
           </button>
         </MenuTrigger>
         <MenuContent align="center">
-          <MenuItem onSelect={() => navigator.clipboard.writeText(message.body)}>Copy text</MenuItem>
+          {message.body && (
+            <MenuItem onSelect={() => navigator.clipboard.writeText(message.body)}>Copy text</MenuItem>
+          )}
+          <MenuItem onSelect={() => onForward?.(message)}>Forward</MenuItem>
           <MenuItem disabled>Message details</MenuItem>
           <MenuSeparator />
           <MenuItem danger disabled>

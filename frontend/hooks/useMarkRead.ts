@@ -15,7 +15,17 @@ import * as api from "@/lib/api";
 export function useMarkRead(conversationId: string, latestMessageId: string | undefined) {
   useEffect(() => {
     if (!latestMessageId) return;
-    if (document.visibilityState !== "visible") return;
-    api.markRead(conversationId).catch(() => {});
+    const mark = () => {
+      if (typeof document !== "undefined" && document.visibilityState === "visible") {
+        api.markRead(conversationId).catch(() => {});
+      }
+    };
+    mark();
+    document.addEventListener("visibilitychange", mark);
+    window.addEventListener("focus", mark);
+    return () => {
+      document.removeEventListener("visibilitychange", mark);
+      window.removeEventListener("focus", mark);
+    };
   }, [conversationId, latestMessageId]);
 }

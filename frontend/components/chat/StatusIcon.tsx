@@ -4,22 +4,38 @@ import { cn } from "@/lib/cn";
 
 export function StatusIcon({ status, className }: { status: MessageStatus; className?: string }) {
   const common = cn("shrink-0", className);
+  let icon = null;
+  let label = "";
+
   switch (status) {
     case "sending":
-      return <Clock size={14} className={common} />;
+      icon = <Clock size={13} className={cn(common, "opacity-75")} />;
+      label = "Sending…";
+      break;
     case "sent":
-      return <Check size={14} className={common} />;
+      icon = <Check size={14} className={cn(common, "opacity-80")} />;
+      label = "Sent";
+      break;
     case "delivered":
-      return <CheckCheck size={14} className={common} />;
+      icon = <CheckCheck size={14} className={cn(common, "opacity-80")} />;
+      label = "Delivered";
+      break;
     case "read":
-      // Lucide's checkmarks are open stroke paths — filling them (rather
-      // than just coloring) renders as a solid blob, not a crisp check.
-      // Distinguishing read from delivered is the caller's job (it controls
-      // the dimmed vs. full-strength text color via className).
-      return <CheckCheck size={14} className={common} />;
+      // Vibrant sky-blue double checkmark (the classic "blue ticks" receipt)
+      icon = <CheckCheck size={14} className={cn(common, "text-[#38bdf8] drop-shadow-sm")} />;
+      label = "Read";
+      break;
     case "failed":
-      return <AlertCircle size={14} className={cn(common, "text-danger")} />;
+      icon = <AlertCircle size={14} className={cn(common, "text-danger")} />;
+      label = "Failed";
+      break;
     default:
       return null;
   }
+
+  return (
+    <span title={label} aria-label={label} className="inline-flex items-center">
+      {icon}
+    </span>
+  );
 }

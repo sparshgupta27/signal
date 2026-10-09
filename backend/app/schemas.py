@@ -80,6 +80,8 @@ class ConversationSummaryOut(CamelModel):
     type: str
     created_at: datetime
     deleted_at: datetime | None = None
+    attachment_kind: str | None = None
+    attachment_name: str | None = None
 
 
 class GroupMemberOut(CamelModel):
@@ -135,7 +137,7 @@ class UpdateConversationIn(CamelModel):
 
 class AttachmentOut(CamelModel):
     id: str
-    kind: str  # 'image' | 'file' — derived from mime_type, not stored separately
+    kind: str  # 'image' | 'video' | 'file' — derived from mime_type, not stored separately
     url: str
     name: str
     size: int
@@ -175,6 +177,10 @@ class SendMessageIn(CamelModel):
     body: str
     reply_to_id: str | None = None
     attachment_ids: list[str] = []
+
+
+class ForwardMessageIn(CamelModel):
+    conversation_ids: list[str]
 
 
 class UploadOut(CamelModel):

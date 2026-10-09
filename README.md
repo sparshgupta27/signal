@@ -119,6 +119,7 @@ All REST routes are prefixed `/api/v1`.
 | GET | `/conversations/{id}/messages` | Paginated message history (cursor via `before`) |
 | POST | `/messages/{id}/read` | REST mark-all-read up to a message (the WS equivalent needs an open connection; this doesn't) |
 | PUT / DELETE | `/messages/{id}/reaction` | Set / remove the caller's reaction (one per person per message) |
+| POST | `/messages/{id}/forward` | Forward a message into one or more conversations the caller is a member of; any attachment is duplicated (its own file on disk), not re-linked |
 | POST | `/uploads` | Upload an attachment (multipart, 10MB cap, rate-limited 20/min) — returns an id before any message references it |
 | GET | `/uploads/{id}?token=...` | Serve an attachment, membership-checked (token in the query string — `<img src>`/`<a href>` can't set an `Authorization` header) |
 | GET | `/search?q=...` | Search conversations/contacts/messages, scoped to the caller's current memberships, with `%`/`_` escaped in the `LIKE` pattern |
