@@ -173,6 +173,11 @@ export async function getArchivedConversations(): Promise<Conversation[]> {
   return sortConversations(list);
 }
 
+export async function getSharedMedia(conversationId: string): Promise<MessageAttachment[]> {
+  const raw = await request<RawAttachment[]>(`/api/v1/conversations/${conversationId}/media`);
+  return raw.map(mapAttachment);
+}
+
 export function getConversation(id: string): Promise<Conversation | null> {
   return request<Conversation>(`/api/v1/conversations/${id}`).catch((e) => {
     if (e instanceof ApiError && (e.status === 404 || e.status === 403)) return null;

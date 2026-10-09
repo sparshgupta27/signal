@@ -145,6 +145,25 @@ def list_archived_conversations_for_user(db: Session, user_id: str) -> list[sche
     return _list_conversations_for_user(db, user_id, archived=True)
 
 
+def list_media_for_conversation(db: Session, conversation_id: str) -> list[models.Attachment]:
+    """Every attachment still attached to a non-deleted message in this
+    conversation, most recent first. Caller is responsible for the
+    membership check (same discipline as the rest of this module)."""
+    return list(
+        db.execute(
+            select(models.Attachment)
+            .join(models.Message, models.Attachment.message_id == models.Message.id)
+            .where(
+                models.Message.conversation_id == conversation_id,
+                models.Message.deleted_at.is_(None),
+            )
+            .order_by(models.Attachment.created_at.desc())
+        )
+        .scalars()
+        .all()
+    )
+
+
 def get_or_create_direct(db: Session, user_id: str, other_id: str) -> models.Conversation:
     key = ":".join(sorted([user_id, other_id]))
     existing = db.execute(

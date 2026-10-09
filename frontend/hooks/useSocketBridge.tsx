@@ -114,7 +114,7 @@ export function useSocketBridge() {
           onClick={() => router.push(`/chat/${message.conversationId}`)}
           className="flex w-80 items-start gap-3 rounded-lg border border-divider bg-elevated p-3 text-left shadow-menu"
         >
-          <Avatar id={sender.id} name={sender.name} size={36} />
+          <Avatar id={sender.id} name={sender.name} src={sender.avatarUrl} size={36} />
           <span className="min-w-0 flex-1">
             <span className="block text-[13.5px] font-semibold text-primary">
               {sender.name}

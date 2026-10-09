@@ -14,6 +14,8 @@ import { useIsContact } from "@/hooks/useContacts";
 import { formatDisappearingDuration, formatLastSeenLabel } from "@/lib/format";
 import { ComingSoonDialog } from "@/components/dialogs/ComingSoonDialog";
 import { DisappearingMessagesDialog } from "@/components/dialogs/DisappearingMessagesDialog";
+import { SharedMediaDialog } from "@/components/dialogs/SharedMediaDialog";
+import { useSharedMedia } from "@/hooks/useSharedMedia";
 
 function ActionTile({
   icon: Icon,
@@ -67,6 +69,8 @@ function Row({
 export function ContactDetails({ conversation }: { conversation: Conversation }) {
   const [comingSoon, setComingSoon] = useState<string | null>(null);
   const [disappearingOpen, setDisappearingOpen] = useState(false);
+  const [sharedMediaOpen, setSharedMediaOpen] = useState(false);
+  const { media } = useSharedMedia(conversation.id);
   const otherId = getOtherMemberId(conversation);
   const user = getUser(otherId);
   const presence = usePresence(otherId);
@@ -79,7 +83,7 @@ export function ContactDetails({ conversation }: { conversation: Conversation })
   return (
     <div className="py-4">
       <div className="flex flex-col items-center gap-2 px-4 pb-4">
-        <Avatar id={user.id} name={user.name} size={80} online={presence.isOnline} />
+        <Avatar id={user.id} name={user.name} src={user.avatarUrl} size={80} online={presence.isOnline} />
         <h2 className="text-[18px] font-semibold text-primary">{user.name}</h2>
         <p className="text-[13px] text-secondary">
           {presence.isOnline ? "Online" : formatLastSeenLabel(presence.lastSeenAt)}
@@ -112,7 +116,12 @@ export function ContactDetails({ conversation }: { conversation: Conversation })
           value={formatDisappearingDuration(conversation.disappearingSeconds)}
           onClick={() => setDisappearingOpen(true)}
         />
-        <Row icon={Image} label="Shared media" value="None yet" onClick={() => setComingSoon("Shared media")} />
+        <Row
+          icon={Image}
+          label="Shared media"
+          value={media.length > 0 ? String(media.length) : "None yet"}
+          onClick={() => setSharedMediaOpen(true)}
+        />
       </SectionCard>
 
       <SectionCard>
@@ -140,6 +149,12 @@ export function ContactDetails({ conversation }: { conversation: Conversation })
         onOpenChange={setDisappearingOpen}
         currentSeconds={conversation.disappearingSeconds}
         onConfirm={(seconds) => setDisappearing(conversation.id, seconds)}
+      />
+
+      <SharedMediaDialog
+        conversationId={conversation.id}
+        open={sharedMediaOpen}
+        onOpenChange={setSharedMediaOpen}
       />
     </div>
   );

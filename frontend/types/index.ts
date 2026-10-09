@@ -64,7 +64,7 @@ export type AttachmentKind = "image" | "file";
 
 export interface MessageAttachment {
   kind: AttachmentKind;
-  /** Object/data URL — client-side only, there's no real file storage behind the mock layer. */
+  /** Authenticated GET /uploads/{id} URL (token in the query string). */
   url: string;
   name: string;
   size: number;

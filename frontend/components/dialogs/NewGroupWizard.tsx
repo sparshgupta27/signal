@@ -122,7 +122,7 @@ export function NewGroupWizard({ onBack, onClose }: NewGroupWizardProps) {
                 key={id}
                 className="flex items-center gap-1.5 rounded-full bg-row-hover py-1 pl-1 pr-2 text-[12.5px] text-primary"
               >
-                <Avatar id={user.id} name={user.name} size={20} />
+                <Avatar id={user.id} name={user.name} src={user.avatarUrl} size={20} />
                 {user.name.split(" ")[0]}
                 <button type="button" onClick={() => toggle(id)} aria-label={`Remove ${user.name}`}>
                   <X size={12} />

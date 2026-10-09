@@ -1,7 +1,7 @@
 from fastapi import APIRouter, Depends, HTTPException
 from sqlalchemy.orm import Session
 
-from .. import models, schemas
+from .. import mappers, models, schemas
 from ..core.database import get_db
 from ..core.deps import get_current_user
 from ..services import conversation_service
@@ -38,6 +38,19 @@ def get_conversation(
     if not participant:
         raise HTTPException(403, "Not a member")
     return conversation_service.build_conversation_out(db, conversation, user.id)
+
+
+@router.get("/{conversation_id}/media", response_model=list[schemas.AttachmentOut])
+def get_shared_media(
+    conversation_id: str,
+    user: models.User = Depends(get_current_user),
+    db: Session = Depends(get_db),
+):
+    participant = conversation_service.get_participant(db, conversation_id, user.id)
+    if not participant:
+        raise HTTPException(403, "Not a member")
+    attachments = conversation_service.list_media_for_conversation(db, conversation_id)
+    return [mappers.attachment_out(a) for a in attachments]
 
 
 @router.post("/direct", response_model=schemas.ConversationOut)

@@ -109,7 +109,7 @@ export function GroupDetails({ conversation }: { conversation: Conversation }) {
           const isSelf = member.userId === getCurrentUserId();
           return (
             <div key={member.userId} className="group/member flex items-center gap-3 px-3 py-2.5">
-              <Avatar id={user.id} name={user.name} size={36} />
+              <Avatar id={user.id} name={user.name} src={user.avatarUrl} size={36} />
               <div className="min-w-0 flex-1">
                 <div className="flex items-center gap-1.5">
                   <span className="truncate text-[13.5px] text-primary">

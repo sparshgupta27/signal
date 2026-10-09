@@ -72,7 +72,7 @@ export function AddMembersDialog({ conversation, open, onOpenChange }: AddMember
                   onClick={() => toggle(user.id)}
                   className="flex w-full items-center gap-3 rounded-md px-2 py-2 hover:bg-row-hover"
                 >
-                  <Avatar id={user.id} name={user.name} size={36} />
+                  <Avatar id={user.id} name={user.name} src={user.avatarUrl} size={36} />
                   <span className="flex-1 truncate text-left text-[14px] text-primary">{user.name}</span>
                   <span
                     className={`flex h-5 w-5 items-center justify-center rounded-full border ${
