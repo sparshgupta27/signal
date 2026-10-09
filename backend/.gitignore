@@ -6,3 +6,6 @@ __pycache__/
 *.db-wal
 *.db-shm
 .env
+/uploads/
+tests/test_uploads/
+.pytest_cache/

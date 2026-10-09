@@ -1,11 +1,24 @@
-from datetime import datetime, timezone
+import os
+from datetime import datetime, timedelta, timezone
 
 from sqlalchemy import select
 from sqlalchemy.orm import Session
 
-from .. import models, schemas
+from .. import mappers, models, schemas
+from ..core.config import settings
 from ..core.security import new_id
 from .conversation_service import active_member_ids
+
+
+def _delete_attachments(db: Session, message_id: str) -> None:
+    for attachment in db.execute(
+        select(models.Attachment).where(models.Attachment.message_id == message_id)
+    ).scalars():
+        try:
+            os.remove(os.path.join(settings.upload_dir, attachment.storage_path))
+        except OSError:
+            pass
+        db.delete(attachment)
 
 
 def compute_status(db: Session, message: models.Message, member_ids: list[str]) -> str:
@@ -35,7 +48,45 @@ def compute_status(db: Session, message: models.Message, member_ids: list[str]) 
     return "sent"
 
 
+def _is_expired(message: models.Message, now: datetime) -> bool:
+    return (
+        message.expires_at is not None
+        and message.deleted_at is None
+        and message.expires_at <= now
+    )
+
+
+def _apply_lazy_expiry(db: Session, message: models.Message) -> None:
+    """Fallback for the gap between background sweeps — a read that lands
+    just after expiry shouldn't show stale content."""
+    now = datetime.now(timezone.utc)
+    if not _is_expired(message, now):
+        return
+    message.deleted_at = now
+    message.body = ""
+    _delete_attachments(db, message.id)
+    db.commit()
+
+
 def message_out(db: Session, message: models.Message, member_ids: list[str]) -> schemas.MessageOut:
+    _apply_lazy_expiry(db, message)
+
+    attachments: list[schemas.AttachmentOut] = []
+    reactions: list[schemas.ReactionOut] = []
+    if message.deleted_at is None:
+        attachments = [
+            mappers.attachment_out(a)
+            for a in db.execute(
+                select(models.Attachment).where(models.Attachment.message_id == message.id)
+            ).scalars()
+        ]
+        reactions = [
+            mappers.reaction_out(r)
+            for r in db.execute(
+                select(models.MessageReaction).where(models.MessageReaction.message_id == message.id)
+            ).scalars()
+        ]
+
     return schemas.MessageOut(
         id=message.id,
         client_id=message.client_id or message.id,
@@ -44,7 +95,8 @@ def message_out(db: Session, message: models.Message, member_ids: list[str]) -> 
         type=message.type,
         body=message.body,
         reply_to_id=message.reply_to_id,
-        reactions=[],
+        attachments=attachments,
+        reactions=reactions,
         status=compute_status(db, message, member_ids),
         created_at=message.created_at,
         deleted_at=message.deleted_at,
@@ -59,6 +111,7 @@ def create_message(
     client_id: str,
     body: str,
     reply_to_id: str | None,
+    attachment_ids: list[str] | None = None,
 ) -> models.Message:
     message = models.Message(
         id=new_id("m-"),
@@ -69,8 +122,30 @@ def create_message(
         body=body,
         reply_to_id=reply_to_id,
     )
+    # Computed once from the timer as it stands right now — deliberately not
+    # re-derived later, so changing the timer afterward can't retroactively
+    # expire messages that were already sent under a longer (or no) timer.
+    if conversation.disappearing_seconds:
+        message.expires_at = datetime.now(timezone.utc) + timedelta(
+            seconds=conversation.disappearing_seconds
+        )
     db.add(message)
     db.flush()
+
+    if attachment_ids:
+        attachments = (
+            db.execute(
+                select(models.Attachment).where(
+                    models.Attachment.id.in_(attachment_ids),
+                    models.Attachment.uploader_id == sender_id,
+                    models.Attachment.message_id.is_(None),
+                )
+            )
+            .scalars()
+            .all()
+        )
+        for attachment in attachments:
+            attachment.message_id = message.id
 
     for uid in active_member_ids(db, conversation.id):
         if uid != sender_id:
@@ -139,3 +214,28 @@ def mark_read(
 
     db.commit()
     return updated
+
+
+def sweep_expired_messages(db: Session) -> list[models.Message]:
+    """Called periodically by the background task in app.main's lifespan.
+    Soft-deletes every message past its expiry and returns them so the
+    caller can broadcast message.deleted to each one's conversation."""
+    now = datetime.now(timezone.utc)
+    expired = (
+        db.execute(
+            select(models.Message).where(
+                models.Message.expires_at.is_not(None),
+                models.Message.expires_at <= now,
+                models.Message.deleted_at.is_(None),
+            )
+        )
+        .scalars()
+        .all()
+    )
+    for message in expired:
+        message.deleted_at = now
+        message.body = ""
+        _delete_attachments(db, message.id)
+    if expired:
+        db.commit()
+    return list(expired)

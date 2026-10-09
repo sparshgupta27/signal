@@ -17,3 +17,29 @@ def user_out(user: models.User) -> schemas.UserOut:
 def directory_user_out(user: models.User, is_contact: bool) -> schemas.DirectoryUserOut:
     base = user_out(user)
     return schemas.DirectoryUserOut(**base.model_dump(), is_contact=is_contact)
+
+
+def _attachment_kind(mime_type: str) -> str:
+    return "image" if mime_type.startswith("image/") else "file"
+
+
+def attachment_out(attachment: models.Attachment) -> schemas.AttachmentOut:
+    return schemas.AttachmentOut(
+        id=attachment.id,
+        kind=_attachment_kind(attachment.mime_type),
+        url=f"/api/v1/uploads/{attachment.id}",
+        name=attachment.file_name,
+        size=attachment.size_bytes,
+        mime_type=attachment.mime_type,
+        width=attachment.width,
+        height=attachment.height,
+    )
+
+
+def upload_out(attachment: models.Attachment) -> schemas.UploadOut:
+    base = attachment_out(attachment)
+    return schemas.UploadOut(**base.model_dump())
+
+
+def reaction_out(reaction: models.MessageReaction) -> schemas.ReactionOut:
+    return schemas.ReactionOut(emoji=reaction.emoji, user_id=reaction.user_id)

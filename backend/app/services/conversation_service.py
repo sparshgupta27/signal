@@ -1,5 +1,6 @@
-from datetime import datetime
+from datetime import datetime, timezone
 
+from fastapi import HTTPException
 from sqlalchemy import func, select
 from sqlalchemy.orm import Session
 
@@ -152,3 +153,39 @@ def get_or_create_direct(db: Session, user_id: str, other_id: str) -> models.Con
     db.commit()
     db.refresh(conversation)
     return conversation
+
+
+def set_disappearing(
+    db: Session, conversation: models.Conversation, actor_id: str, seconds: int | None
+) -> models.Message:
+    """Enforced here, not the router: either member may set it in a direct
+    conversation; only an admin may in a group."""
+    participant = get_participant(db, conversation.id, actor_id)
+    if not participant or participant.left_at is not None:
+        raise HTTPException(403, "Not a member")
+    if conversation.type == "group" and participant.role != "admin":
+        raise HTTPException(403, "Admins only")
+
+    conversation.disappearing_seconds = seconds
+
+    now = datetime.now(timezone.utc)
+    sid = new_id("sys-")
+    message = models.Message(
+        id=sid,
+        client_id=sid,
+        conversation_id=conversation.id,
+        sender_id=None,
+        type="system",
+        body="",
+        system_event={
+            "action": "disappearing_changed",
+            "actorId": actor_id,
+            "value": str(seconds) if seconds else "0",
+        },
+        created_at=now,
+    )
+    db.add(message)
+    conversation.last_message_at = now
+    db.commit()
+    db.refresh(message)
+    return message

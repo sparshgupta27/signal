@@ -117,7 +117,31 @@ class UpdateParticipantFlagsIn(CamelModel):
     is_archived: bool | None = None
 
 
+class UpdateConversationIn(CamelModel):
+    """Conversation-level settings — currently just the disappearing-message
+    timer, which is shared by everyone in the chat (unlike the per-viewer
+    flags in UpdateParticipantFlagsIn)."""
+
+    disappearing_seconds: int | None = None
+
+
 # --- messages -------------------------------------------------------------------
+
+
+class AttachmentOut(CamelModel):
+    id: str
+    kind: str  # 'image' | 'file' — derived from mime_type, not stored separately
+    url: str
+    name: str
+    size: int
+    mime_type: str
+    width: int | None = None
+    height: int | None = None
+
+
+class ReactionOut(CamelModel):
+    emoji: str
+    user_id: str
 
 
 class MessageOut(CamelModel):
@@ -128,7 +152,8 @@ class MessageOut(CamelModel):
     type: str
     body: str
     reply_to_id: str | None = None
-    reactions: list[dict] = []
+    attachments: list[AttachmentOut] = []
+    reactions: list[ReactionOut] = []
     status: str
     created_at: datetime
     deleted_at: datetime | None = None
@@ -144,6 +169,22 @@ class SendMessageIn(CamelModel):
     client_id: str
     body: str
     reply_to_id: str | None = None
+    attachment_ids: list[str] = []
+
+
+class UploadOut(CamelModel):
+    id: str
+    kind: str
+    url: str
+    name: str
+    size: int
+    mime_type: str
+    width: int | None = None
+    height: int | None = None
+
+
+class SetReactionIn(CamelModel):
+    emoji: str
 
 
 class MarkReadIn(CamelModel):
