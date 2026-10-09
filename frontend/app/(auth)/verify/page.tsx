@@ -20,6 +20,9 @@ function VerifyForm() {
   const [shakeKey, setShakeKey] = useState(0);
   const [verifying, setVerifying] = useState(false);
   const [countdown, setCountdown] = useState(RESEND_SECONDS);
+  // Seeded from the query param login.tsx attached after requesting the
+  // first code; refreshed locally (not re-read from the URL) on resend.
+  const [otpHint, setOtpHint] = useState(searchParams.get("otp") ?? "");
 
   useEffect(() => {
     if (countdown <= 0) return;
@@ -51,7 +54,8 @@ function VerifyForm() {
 
   const handleResend = async () => {
     if (countdown > 0) return;
-    await auth.requestOtp(identifier);
+    const { otp } = await auth.requestOtp(identifier);
+    setOtpHint(otp);
     setCountdown(RESEND_SECONDS);
     toast("Code resent");
   };
@@ -81,7 +85,9 @@ function VerifyForm() {
       {error ? (
         <p className="text-[12.5px] text-danger">That code didn&apos;t match. Try again.</p>
       ) : (
-        <p className="text-[12.5px] text-secondary">Demo code: 123456</p>
+        <p className="text-[12.5px] text-secondary">
+          Demo code: <span className="font-medium text-primary">{otpHint}</span>
+        </p>
       )}
 
       <button

@@ -9,7 +9,16 @@ export interface Session {
 
 const STORAGE_KEY = "signal-clone-session";
 const LOCAL_CHANGE_EVENT = "signal-clone-session:local-change";
-const OTP_CODE = "123456";
+
+// Keyed by normalized identifier, holding whatever code was most recently
+// "sent" for it. There's no real SMS gateway behind this mock, so the code
+// is handed back to the caller to display directly, rather than only living
+// server-side the way a real OTP would.
+const pendingOtps = new Map<string, string>();
+
+function generateOtp(): string {
+  return Math.floor(100000 + Math.random() * 900000).toString();
+}
 
 function delay(ms = 300): Promise<void> {
   return new Promise((resolve) => setTimeout(resolve, ms));
@@ -76,9 +85,11 @@ export function getServerSessionSnapshot(): Session | null {
 
 // --- mock auth flow ---
 
-export async function requestOtp(identifier: string): Promise<{ isNewUser: boolean }> {
+export async function requestOtp(identifier: string): Promise<{ isNewUser: boolean; otp: string }> {
   await delay();
-  return { isNewUser: !findMatchingUser(identifier) };
+  const otp = generateOtp();
+  pendingOtps.set(normalize(identifier), otp);
+  return { isNewUser: !findMatchingUser(identifier), otp };
 }
 
 export async function verifyOtp(
@@ -86,7 +97,11 @@ export async function verifyOtp(
   code: string
 ): Promise<{ success: boolean; isNewUser: boolean }> {
   await delay();
-  if (code !== OTP_CODE) return { success: false, isNewUser: false };
+  const expected = pendingOtps.get(normalize(identifier));
+  if (!expected || code !== expected) return { success: false, isNewUser: false };
+  // Burn it on success, same as a real one-time code — a stale "resend" tab
+  // left open from earlier can't be replayed after this.
+  pendingOtps.delete(normalize(identifier));
 
   const matched = findMatchingUser(identifier);
   const isNewUser = !matched;
