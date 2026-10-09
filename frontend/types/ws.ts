@@ -23,7 +23,11 @@ export type WsEvent =
       type: "presence";
       data: { userId: string; isOnline: boolean; lastSeenAt: string | null };
     }
-  | { type: "conversation.updated"; data: { conversation: Conversation } };
+  | { type: "conversation.updated"; data: { conversation: Conversation } }
+  | {
+      type: "message.deleted";
+      data: { messageId: string; conversationId: string; deletedAt: string };
+    };
 
 export type WsEventType = WsEvent["type"];
 export type WsEventData<T extends WsEventType> = Extract<

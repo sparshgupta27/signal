@@ -9,8 +9,9 @@ import { Avatar } from "@/components/ui/Avatar";
 import { Menu, MenuContent, MenuItem, MenuTrigger } from "@/components/ui/Menu";
 import { ConfirmDialog } from "@/components/dialogs/ConfirmDialog";
 import { AddMembersDialog } from "@/components/dialogs/AddMembersDialog";
-import { ComingSoonDialog } from "@/components/dialogs/ComingSoonDialog";
+import { DisappearingMessagesDialog } from "@/components/dialogs/DisappearingMessagesDialog";
 import { CURRENT_USER_ID, getUser } from "@/lib/mock/data";
+import { formatDisappearingDuration } from "@/lib/format";
 import { useConversationActions } from "@/hooks/useConversationActions";
 import { useGroupActions } from "@/hooks/useGroupActions";
 
@@ -39,10 +40,10 @@ export function GroupDetails({ conversation }: { conversation: Conversation }) {
   const [addOpen, setAddOpen] = useState(false);
   const [leaveOpen, setLeaveOpen] = useState(false);
   const [removeTarget, setRemoveTarget] = useState<string | null>(null);
-  const [comingSoon, setComingSoon] = useState<string | null>(null);
+  const [disappearingOpen, setDisappearingOpen] = useState(false);
   const router = useRouter();
 
-  const { toggleMute } = useConversationActions();
+  const { toggleMute, setDisappearing } = useConversationActions();
   const { removeMember, setMemberRole } = useGroupActions();
 
   const activeMembers = (conversation.members ?? []).filter((m) => !m.leftAt);
@@ -72,13 +73,13 @@ export function GroupDetails({ conversation }: { conversation: Conversation }) {
       <div className="mx-4 mb-4 divide-y divide-divider rounded-lg bg-sidebar">
         <button
           type="button"
-          onClick={() => setComingSoon("Disappearing messages")}
+          onClick={() => setDisappearingOpen(true)}
           className="flex w-full items-center gap-3 rounded-t-lg px-3 py-3 text-left hover:bg-row-hover"
         >
           <Timer size={18} strokeWidth={1.75} className="text-secondary" />
           <span className="flex-1 text-[13.5px] text-primary">Disappearing messages</span>
           <span className="text-[13px] text-secondary">
-            {conversation.disappearingSeconds ? formatDuration(conversation.disappearingSeconds) : "Off"}
+            {formatDisappearingDuration(conversation.disappearingSeconds)}
           </span>
         </button>
       </div>
@@ -189,18 +190,12 @@ export function GroupDetails({ conversation }: { conversation: Conversation }) {
         }}
       />
 
-      <ComingSoonDialog
-        open={comingSoon !== null}
-        onOpenChange={(open) => !open && setComingSoon(null)}
-        title={comingSoon ?? ""}
+      <DisappearingMessagesDialog
+        open={disappearingOpen}
+        onOpenChange={setDisappearingOpen}
+        currentSeconds={conversation.disappearingSeconds}
+        onConfirm={(seconds) => setDisappearing(conversation.id, seconds)}
       />
     </div>
   );
-}
-
-function formatDuration(seconds: number): string {
-  if (seconds < 3600) return `${Math.round(seconds / 60)} minutes`;
-  if (seconds < 86400) return `${Math.round(seconds / 3600)} hours`;
-  if (seconds < 604800) return `${Math.round(seconds / 86400)} days`;
-  return `${Math.round(seconds / 604800)} week${seconds > 604800 ? "s" : ""}`;
 }

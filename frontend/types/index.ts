@@ -82,7 +82,8 @@ export interface SystemEvent {
     | "member_left"
     | "member_promoted"
     | "member_demoted"
-    | "name_changed";
+    | "name_changed"
+    | "disappearing_changed";
   actorId: string;
   targetId?: string;
   value?: string;
