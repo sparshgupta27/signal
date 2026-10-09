@@ -64,11 +64,18 @@ export function useConversationActions() {
   // chat list query everywhere.
   const archive = useCallback(
     async (conversation: Conversation) => {
-      await api.setConversationFlags(conversation.id, { isArchived: true });
+      const updated = await api.setConversationFlags(conversation.id, { isArchived: true });
       removeFromList(conversation.id);
+      // Mirrors unarchive(): without this the archived-list query stays
+      // whatever it was last fetched as, so the newly archived chat (and
+      // the "Archived" row itself, the first time one exists) only shows
+      // up after a refetch — i.e. a page reload.
+      queryClient.setQueryData<Conversation[]>(archivedConversationsQueryKey, (prev) =>
+        prev ? api.sortConversations([...prev.filter((c) => c.id !== updated.id), updated]) : prev
+      );
       toast("Chat archived");
     },
-    [removeFromList]
+    [queryClient, removeFromList]
   );
 
   const unarchive = useCallback(
