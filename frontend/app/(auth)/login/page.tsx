@@ -34,8 +34,8 @@ export default function LoginPage() {
 
     const identifier = mode === "phone" ? `${dial} ${phone.trim()}` : username.trim();
     try {
-      await auth.requestOtp(identifier);
-      router.push(`/verify?identifier=${encodeURIComponent(identifier)}`);
+      const { otp } = await auth.requestOtp(identifier);
+      router.push(`/verify?identifier=${encodeURIComponent(identifier)}&otp=${otp}`);
     } catch {
       setError("Something went wrong. Try again.");
       setSubmitting(false);
