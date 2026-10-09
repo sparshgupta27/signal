@@ -1,3 +1,5 @@
+import re
+
 from fastapi import APIRouter, Depends, HTTPException
 from sqlalchemy import select
 from sqlalchemy.orm import Session
@@ -8,6 +10,10 @@ from ..core.deps import get_current_user
 from ..directory import find_user_by_identifier
 
 router = APIRouter(prefix="/api/v1/users", tags=["users"])
+
+# Starts with a letter, 3-30 chars total, lowercase letters/digits/dot/
+# underscore after that — matches the seed data's own style (demo.01).
+_USERNAME_RE = re.compile(r"^[a-z][a-z0-9_.]{2,29}$")
 
 
 @router.get("/me", response_model=schemas.UserOut)
@@ -29,6 +35,20 @@ def update_me(
         user.avatar_url = body.avatar_url or None
     if body.show_last_seen is not None:
         user.show_last_seen = body.show_last_seen
+    if body.username is not None:
+        normalized = body.username.strip().lstrip("@").lower()
+        if not _USERNAME_RE.match(normalized):
+            raise HTTPException(
+                400,
+                "Username must be 3-30 characters, start with a letter, and use only "
+                "lowercase letters, numbers, dots, or underscores.",
+            )
+        taken = db.execute(
+            select(models.User).where(models.User.username == normalized, models.User.id != user.id)
+        ).scalar_one_or_none()
+        if taken:
+            raise HTTPException(409, "That username is already taken.")
+        user.username = normalized
     db.commit()
     db.refresh(user)
     return mappers.user_out(user, user.id)

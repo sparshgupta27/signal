@@ -145,6 +145,7 @@ export function updateMe(input: {
   about?: string;
   avatarUrl?: string | null;
   showLastSeen?: boolean;
+  username?: string;
 }): Promise<User> {
   return request("/api/v1/users/me", { method: "PATCH", body: JSON.stringify(input) });
 }

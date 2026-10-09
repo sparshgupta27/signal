@@ -19,6 +19,7 @@ import { AvatarPicker } from "@/components/profile/AvatarPicker";
 import { SETTINGS_SECTIONS } from "@/components/settings/SettingsNav";
 import { useMyProfile, useUpdateMyProfile } from "@/hooks/useMyProfile";
 import { useSession } from "@/hooks/useSession";
+import { ApiError } from "@/lib/api";
 
 const STATUS_SUGGESTIONS = ["Available", "Busy", "At work", "At the gym", "Sleeping", "In a meeting"];
 
@@ -40,15 +41,35 @@ export default function SettingsSectionPage({
   const [name, setName] = useState(() => profile.name);
   const [about, setAbout] = useState(() => profile.about);
   const [avatarUrl, setAvatarUrl] = useState(() => profile.avatarUrl);
+  const [username, setUsername] = useState(() => profile.username);
+  const [usernameError, setUsernameError] = useState<string | null>(null);
 
   const handleSave = async () => {
     if (saving) return;
     const nextName = name.trim() || profile.name;
+    const nextUsername = username.trim();
     setSaving(true);
+    setUsernameError(null);
     try {
-      await updateProfile({ name: nextName, about: about.trim(), avatarUrl });
+      await updateProfile({
+        name: nextName,
+        about: about.trim(),
+        avatarUrl,
+        // Only sent when it actually changed — an unset username on a
+        // phone-registered account is otherwise "" here, and re-sending
+        // that every save would hit the same-value-is-still-valid path
+        // for no reason.
+        ...(nextUsername && nextUsername !== profile.username ? { username: nextUsername } : {}),
+      });
       setName(nextName);
+      setUsername(nextUsername);
       toast("Profile updated");
+    } catch (e) {
+      if (e instanceof ApiError && (e.status === 409 || e.status === 400)) {
+        setUsernameError(e.message);
+      } else {
+        toast("Couldn't update profile");
+      }
     } finally {
       setSaving(false);
     }
@@ -115,24 +136,40 @@ export default function SettingsSectionPage({
               ))}
             </div>
           </div>
-          <SettingsGroupLabel>Account</SettingsGroupLabel>
-          <SettingsCard>
-            <SettingsRow
-              label="Username"
-              control={
+          <SettingsGroupLabel>Username</SettingsGroupLabel>
+          <div className="space-y-1.5">
+            <div className="flex items-center gap-2">
+              <Input
+                value={username}
+                onChange={(e) => {
+                  setUsername(e.target.value.replace(/\s/g, ""));
+                  setUsernameError(null);
+                }}
+                pill={false}
+                placeholder="Choose a username"
+                containerClassName="flex-1"
+              />
+              {profile.username && (
                 <button
                   type="button"
                   onClick={() => {
-                    navigator.clipboard.writeText(`@${me?.username}`);
+                    navigator.clipboard.writeText(`@${profile.username}`);
                     toast("Username copied");
                   }}
-                  className="flex items-center gap-1.5 text-[13px] text-secondary hover:text-primary"
+                  aria-label="Copy username"
+                  className="flex h-9 w-9 shrink-0 items-center justify-center rounded-md text-secondary hover:bg-row-hover hover:text-primary"
                 >
-                  @{me?.username}
-                  <Copy size={13} />
+                  <Copy size={15} />
                 </button>
-              }
-            />
+              )}
+            </div>
+            <p className={`text-[12px] ${usernameError ? "text-danger" : "text-secondary"}`}>
+              {usernameError ??
+                "Lets people find you without your phone number — letters, numbers, dots, or underscores."}
+            </p>
+          </div>
+          <SettingsGroupLabel>Account</SettingsGroupLabel>
+          <SettingsCard>
             <SettingsRow label="Phone" control={<span className="text-[13px] text-secondary">{me?.phone}</span>} />
           </SettingsCard>
           <div className="mt-6 flex justify-end">

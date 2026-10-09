@@ -13,7 +13,7 @@ import { wsClient } from "@/lib/ws";
 import { useChatStore } from "@/store/chatStore";
 import { usePresenceStore } from "@/store/presenceStore";
 import { Avatar } from "@/components/ui/Avatar";
-import { conversationsQueryKey } from "./useConversations";
+import { archivedConversationsQueryKey, conversationsQueryKey } from "./useConversations";
 
 /**
  * Mounted once near the app root. Wires the WebSocket connection into the
@@ -47,8 +47,20 @@ export function useSocketBridge() {
       .then(([me, others]) => primeUsers([me, ...others]))
       .catch(() => {});
 
+    // conversation.updated fires for plenty of reasons that have nothing to
+    // do with archiving (a new message, pin/mute, a renamed group) — for an
+    // *archived* conversation, every one of those was patching it straight
+    // back into the main list regardless, since this never checked
+    // isArchived at all. That's "archiving a chat, then it reappears the
+    // moment anyone sends a message in it." Route into whichever cache
+    // actually matches the conversation's current archived state, and keep
+    // the other one from holding a stale copy.
     const patchConversation = (conversation: Conversation) => {
-      queryClient.setQueryData<Conversation[]>(conversationsQueryKey, (prev) => {
+      const [targetKey, staleKey] = conversation.isArchived
+        ? [archivedConversationsQueryKey, conversationsQueryKey]
+        : [conversationsQueryKey, archivedConversationsQueryKey];
+
+      queryClient.setQueryData<Conversation[]>(targetKey, (prev) => {
         if (!prev) return prev;
         const exists = prev.some((c) => c.id === conversation.id);
         const next = exists
@@ -56,6 +68,9 @@ export function useSocketBridge() {
           : [...prev, conversation];
         return sortConversations(next);
       });
+      queryClient.setQueryData<Conversation[]>(staleKey, (prev) =>
+        prev ? prev.filter((c) => c.id !== conversation.id) : prev
+      );
     };
 
     const offConversationUpdated = wsClient.on("conversation.updated", ({ conversation }) => {

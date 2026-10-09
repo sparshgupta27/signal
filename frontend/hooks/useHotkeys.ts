@@ -18,7 +18,13 @@ function matches(e: KeyboardEvent, combo: string): boolean {
   const key = parts[parts.length - 1]!;
   const mod = e.metaKey || e.ctrlKey;
   if (parts.includes("mod") !== mod) return false;
-  if (parts.includes("shift") !== e.shiftKey) return false;
+  // Shift only checked one-directionally, not for exact equality like mod/
+  // alt: typing a shift-dependent character (?, !, @, ...) requires holding
+  // shift even though the combo never names it as a modifier — e.key
+  // already reflects the shifted character correctly, so there's nothing
+  // left to additionally require shift be *absent* for a plain "n" combo.
+  // Without this, combos like "?" (really Shift+/) could never match.
+  if (parts.includes("shift") && !e.shiftKey) return false;
   if (parts.includes("alt") !== e.altKey) return false;
   return e.key.toLowerCase() === key;
 }

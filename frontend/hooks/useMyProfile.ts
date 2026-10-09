@@ -10,6 +10,7 @@ export interface MyProfile {
   about: string;
   avatarUrl: string | null;
   showLastSeen: boolean;
+  username: string;
 }
 
 /** session.user (set at login, always immediately available) is the
@@ -23,6 +24,7 @@ export function useMyProfile(): MyProfile {
     about: user?.about ?? "",
     avatarUrl: user?.avatarUrl ?? null,
     showLastSeen: user?.showLastSeen ?? true,
+    username: user?.username ?? "",
   };
 }
 
@@ -33,6 +35,7 @@ export function useUpdateMyProfile() {
     about?: string;
     avatarUrl?: string | null;
     showLastSeen?: boolean;
+    username?: string;
   }) => {
     const user = await api.updateMe(patch);
     updateSessionUser(user);

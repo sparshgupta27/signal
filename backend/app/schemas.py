@@ -61,6 +61,7 @@ class UpdateMeIn(CamelModel):
     about: str | None = None
     avatar_url: str | None = None
     show_last_seen: bool | None = None
+    username: str | None = None
 
 
 # --- contacts -----------------------------------------------------------------
