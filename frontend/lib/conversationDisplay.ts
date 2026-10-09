@@ -36,7 +36,15 @@ export function getPreviewText(conversation: Conversation): string {
       : conversation.type === "group"
         ? `${getUser(last.senderId)?.name.split(" ")[0] ?? "Someone"}: `
         : "";
-  return `${prefix}${last.body}`;
+  const body =
+    last.attachmentKind === "image"
+      ? last.body
+        ? `📷 ${last.body}`
+        : "📷 Photo"
+      : last.attachmentKind === "file"
+        ? `📎 ${last.attachmentName ?? last.body ?? "File"}`
+        : last.body;
+  return `${prefix}${body}`;
 }
 
 export function senderDisplayName(message: Message): string {

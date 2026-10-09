@@ -30,6 +30,8 @@ export interface ConversationSummary {
   type: MessageType;
   createdAt: string;
   deletedAt?: string | null;
+  attachmentKind?: AttachmentKind | null;
+  attachmentName?: string | null;
 }
 
 export interface Conversation {
@@ -58,6 +60,20 @@ export interface MessageReaction {
   userId: string;
 }
 
+export type AttachmentKind = "image" | "file";
+
+export interface MessageAttachment {
+  kind: AttachmentKind;
+  /** Object/data URL — client-side only, there's no real file storage behind the mock layer. */
+  url: string;
+  name: string;
+  size: number;
+  mimeType: string;
+  /** Image attachments only. */
+  width?: number;
+  height?: number;
+}
+
 export interface SystemEvent {
   action:
     | "created"
@@ -81,6 +97,7 @@ export interface Message {
   type: MessageType;
   body: string;
   replyToId?: string | null;
+  attachment?: MessageAttachment | null;
   reactions: MessageReaction[];
   status: MessageStatus;
   createdAt: string;

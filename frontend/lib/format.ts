@@ -41,3 +41,9 @@ export function isSameCalendarDay(a: string, b: string): boolean {
 export function minutesBetween(a: string, b: string): number {
   return Math.abs(new Date(a).getTime() - new Date(b).getTime()) / 60_000;
 }
+
+export function formatFileSize(bytes: number): string {
+  if (bytes < 1024) return `${bytes} B`;
+  if (bytes < 1024 * 1024) return `${(bytes / 1024).toFixed(1)} KB`;
+  return `${(bytes / (1024 * 1024)).toFixed(1)} MB`;
+}
