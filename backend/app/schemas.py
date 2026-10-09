@@ -43,6 +43,9 @@ class UserOut(CamelModel):
     # "whether privacy is on" to other users.
     last_seen_at: datetime | None = None
     show_last_seen: bool | None = None
+    # Mock E2EE — see backend/app/core/security.py. Genuinely public, no
+    # privacy gating needed (unlike last_seen_at above).
+    public_key: str | None = None
 
 
 class VerifyOtpOut(CamelModel):
@@ -173,6 +176,9 @@ class MessageOut(CamelModel):
     deleted_at: datetime | None = None
     edited_at: datetime | None = None
     system_event: dict | None = None
+    # Mock E2EE — see backend/app/core/security.py. Not read by the app for
+    # anything; demonstrates where a real ciphertext would be stored.
+    ciphertext: str | None = None
 
 
 class MessagePageOut(CamelModel):

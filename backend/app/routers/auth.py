@@ -6,7 +6,7 @@ from sqlalchemy.orm import Session
 from .. import mappers, models, schemas
 from ..core.database import get_db
 from ..core.limiter import limiter
-from ..core.security import create_access_token, new_id
+from ..core.security import create_access_token, generate_mock_public_key, new_id
 from ..directory import find_user_by_identifier
 
 router = APIRouter(prefix="/api/v1/auth", tags=["auth"])
@@ -57,6 +57,7 @@ def verify_otp(request: Request, body: schemas.VerifyOtpIn, db: Session = Depend
             phone=identifier if is_phone else None,
             username=None if is_phone else identifier.lstrip("@"),
             display_name="New user" if is_phone else identifier,
+            public_key=generate_mock_public_key(),
         )
         db.add(user)
         db.commit()

@@ -15,6 +15,7 @@ def user_out(user: models.User, viewer_id: str | None = None) -> schemas.UserOut
         # "show last seen" off — not just a cosmetic client-side toggle.
         last_seen_at=user.last_seen_at if (is_self or user.show_last_seen) else None,
         show_last_seen=user.show_last_seen if is_self else None,
+        public_key=user.public_key,
     )
 
 

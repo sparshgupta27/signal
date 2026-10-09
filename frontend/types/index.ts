@@ -15,6 +15,8 @@ export interface User {
   lastSeenAt: string | null;
   /** Only populated for the current user's own record — null on anyone else's. */
   showLastSeen?: boolean | null;
+  /** Mock E2EE fingerprint — not a real key, see backend/app/core/security.py. */
+  publicKey?: string | null;
 }
 
 export interface GroupMember {

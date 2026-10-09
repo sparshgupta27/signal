@@ -11,7 +11,7 @@ from datetime import datetime, timedelta, timezone
 from sqlalchemy.orm import Session
 
 from . import models
-from .core.security import new_id
+from .core.security import generate_mock_public_key, new_id
 
 SEED_USERS = [
     {"id": "demo", "phone": "+91 90000 00001", "username": "demo.01", "name": "Demo User", "about": "Available"},
@@ -358,6 +358,17 @@ def remove_demo_data_for_user(db: Session, user_id: str) -> bool:
     return removed_any
 
 
+def backfill_public_keys(db: Session) -> None:
+    """ensure_columns() adds users.public_key as NULL on an existing
+    deployment's DB — this fills it in for any account (seeded or real)
+    that predates the column, so every user has one, not just new signups."""
+    missing = db.query(models.User).filter(models.User.public_key.is_(None)).all()
+    for user in missing:
+        user.public_key = generate_mock_public_key()
+    if missing:
+        db.commit()
+
+
 def run_seed(db: Session) -> None:
     if db.query(models.User).count() > 0:
         return
@@ -373,6 +384,7 @@ def run_seed(db: Session) -> None:
                 username=u["username"],
                 display_name=u["name"],
                 about=u["about"],
+                public_key=generate_mock_public_key(),
             )
         )
     db.flush()

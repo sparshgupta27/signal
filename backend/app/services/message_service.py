@@ -6,7 +6,7 @@ from sqlalchemy.orm import Session
 
 from .. import mappers, models, schemas
 from ..core.config import settings
-from ..core.security import new_id
+from ..core.security import mock_encrypt, new_id
 from . import upload_service
 from .conversation_service import active_member_ids, get_participant
 
@@ -65,6 +65,7 @@ def _apply_lazy_expiry(db: Session, message: models.Message) -> None:
         return
     message.deleted_at = now
     message.body = ""
+    message.ciphertext = None
     _delete_attachments(db, message.id)
     db.commit()
 
@@ -103,11 +104,13 @@ def message_out(db: Session, message: models.Message, member_ids: list[str]) -> 
         deleted_at=message.deleted_at,
         edited_at=message.edited_at,
         system_event=message.system_event,
+        ciphertext=message.ciphertext,
     )
 
 
 def edit_message(db: Session, message: models.Message, body: str) -> models.Message:
     message.body = body
+    message.ciphertext = mock_encrypt(body)
     message.edited_at = datetime.now(timezone.utc)
     db.commit()
     db.refresh(message)
@@ -117,6 +120,7 @@ def edit_message(db: Session, message: models.Message, body: str) -> models.Mess
 def delete_for_everyone(db: Session, message: models.Message) -> models.Message:
     message.deleted_at = datetime.now(timezone.utc)
     message.body = ""
+    message.ciphertext = None
     _delete_attachments(db, message.id)
     db.commit()
     db.refresh(message)
@@ -175,6 +179,7 @@ def create_message(
         sender_id=sender_id,
         type="text",
         body=body,
+        ciphertext=mock_encrypt(body),
         reply_to_id=reply_to_id,
     )
     # Computed once from the timer as it stands right now — deliberately not
@@ -324,6 +329,7 @@ def sweep_expired_messages(db: Session) -> list[models.Message]:
     for message in expired:
         message.deleted_at = now
         message.body = ""
+        message.ciphertext = None
         _delete_attachments(db, message.id)
     if expired:
         db.commit()

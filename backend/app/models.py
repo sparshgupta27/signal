@@ -29,6 +29,9 @@ class User(Base):
     is_online: Mapped[bool] = mapped_column(default=False)
     last_seen_at: Mapped[datetime | None] = mapped_column(nullable=True)
     show_last_seen: Mapped[bool] = mapped_column(default=True)
+    # Mock E2EE — see core/security.py. Real, public, non-secret; everyone
+    # can see everyone's, same as a real public key.
+    public_key: Mapped[str | None] = mapped_column(nullable=True)
     created_at: Mapped[datetime] = mapped_column(default=utcnow)
 
     __table_args__ = (
@@ -105,6 +108,9 @@ class Message(Base):
     created_at: Mapped[datetime] = mapped_column(default=utcnow)
     deleted_at: Mapped[datetime | None] = mapped_column(nullable=True)
     edited_at: Mapped[datetime | None] = mapped_column(nullable=True)
+    # Mock E2EE — see core/security.py. Stored alongside body, not instead
+    # of it; the rest of the app still reads the plaintext body.
+    ciphertext: Mapped[str | None] = mapped_column(nullable=True)
     # Set once, at send time, from the conversation's disappearing_seconds AT
     # THAT MOMENT — never recomputed from the live timer later, so changing
     # the timer afterward can't retroactively expire old messages.

@@ -70,6 +70,8 @@ def get_db():
 _PENDING_COLUMNS: list[tuple[str, str, str]] = [
     ("users", "show_last_seen", "BOOLEAN DEFAULT 1"),
     ("messages", "edited_at", "DATETIME"),
+    ("users", "public_key", "TEXT"),
+    ("messages", "ciphertext", "TEXT"),
 ]
 
 

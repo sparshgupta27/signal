@@ -24,7 +24,7 @@ from .routers import (
     uploads,
     users,
 )
-from .seeding import run_seed, seed_missing_demo_dms
+from .seeding import backfill_public_keys, run_seed, seed_missing_demo_dms
 from .services import conversation_service, message_service
 from .ws.broadcast import broadcast_message_deleted
 from .ws.router import router as ws_router
@@ -63,6 +63,7 @@ async def lifespan(_app: FastAPI):
         # destructive reseed. Checks each DM's existence first, so it's a
         # no-op on a database that already has them.
         seed_missing_demo_dms(db)
+        backfill_public_keys(db)
     finally:
         db.close()
 
