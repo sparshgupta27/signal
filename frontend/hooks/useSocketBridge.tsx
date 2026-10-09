@@ -1,13 +1,13 @@
 "use client";
 
-import { useEffect, useRef } from "react";
+import { useEffect, useRef, useSyncExternalStore } from "react";
 import { useQueryClient } from "@tanstack/react-query";
 import { useRouter } from "next/navigation";
 import { toast } from "sonner";
 import type { Conversation } from "@/types";
 import * as api from "@/lib/api";
 import { getCurrentUserId } from "@/lib/session";
-import { getUser, primeUser, primeUsers } from "@/lib/users";
+import { getUser, getUsersVersion, primeUser, primeUsers, subscribeUsers } from "@/lib/users";
 import { sortConversations } from "@/lib/api";
 import { wsClient } from "@/lib/ws";
 import { useChatStore } from "@/store/chatStore";
@@ -25,6 +25,17 @@ export function useSocketBridge() {
   const queryClient = useQueryClient();
   const router = useRouter();
   const typingTimers = useRef(new Map<string, ReturnType<typeof setTimeout>>());
+
+  // getUser() is a plain synchronous cache read, not reactive on its own —
+  // components calling it (chat list rows, message bubbles, group/contact
+  // details) render once with whatever's cached *at that instant*. The
+  // directory priming below is async, so without this subscription anyone
+  // not yet cached renders as "Unknown" permanently: nothing ever tells
+  // those components to re-render once the real name arrives. Subscribing
+  // here — in the hook mounted once at the root of the authenticated app
+  // tree (app/(app)/layout.tsx) — re-renders that whole tree on every
+  // cache update instead of wiring a subscription into a dozen call sites.
+  useSyncExternalStore(subscribeUsers, getUsersVersion, () => 0);
 
   useEffect(() => {
     wsClient.start();
