@@ -50,7 +50,7 @@ export default function ChatPage({ params }: { params: Promise<{ id: string }> }
   const canSend = conversation.memberIds.includes(CURRENT_USER_ID);
 
   return (
-    <div className="flex min-w-0 flex-1">
+    <div className="relative flex min-w-0 flex-1">
       <div className="flex min-w-0 flex-1 flex-col">
         <ChatHeader conversation={conversation} />
         <MessageList

@@ -49,7 +49,14 @@ function readStoredWidth(): number {
   return stored >= MIN_WIDTH && stored <= MAX_WIDTH ? stored : DEFAULT_WIDTH;
 }
 
-export function ListPane() {
+interface ListPaneProps {
+  /** Mobile: the pane is the entire screen, not a sized sidebar — no stored width, no resize handle. */
+  fullWidth?: boolean;
+  /** Tablet: a fixed, non-resizable width per the spec (resizing a 300px pane isn't very useful). */
+  compact?: boolean;
+}
+
+export function ListPane({ fullWidth = false, compact = false }: ListPaneProps) {
   const [width, setWidth] = useState(readStoredWidth);
   const [query, setQueryState] = useState("");
   const [unreadOnly, setUnreadOnly] = useState(false);
@@ -109,8 +116,11 @@ export function ListPane() {
 
   return (
     <div
-      className="relative flex shrink-0 flex-col border-r border-divider bg-sidebar"
-      style={{ width }}
+      className={cn(
+        "relative flex shrink-0 flex-col bg-sidebar",
+        fullWidth ? "w-full" : "border-r border-divider"
+      )}
+      style={fullWidth ? undefined : { width: compact ? 300 : width }}
     >
       <ChatListHeader />
 
@@ -155,10 +165,12 @@ export function ListPane() {
         )}
       </div>
 
-      <div
-        onPointerDown={startResize}
-        className="absolute right-0 top-0 h-full w-1 cursor-col-resize select-none hover:bg-accent/30 active:bg-accent/40"
-      />
+      {!fullWidth && !compact && (
+        <div
+          onPointerDown={startResize}
+          className="absolute right-0 top-0 h-full w-1 cursor-col-resize select-none hover:bg-accent/30 active:bg-accent/40"
+        />
+      )}
     </div>
   );
 }

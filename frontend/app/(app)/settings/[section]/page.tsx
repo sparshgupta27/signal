@@ -1,8 +1,9 @@
 "use client";
 
 import { use, useState } from "react";
+import Link from "next/link";
 import { toast } from "sonner";
-import { Copy } from "lucide-react";
+import { ArrowLeft, Copy } from "lucide-react";
 import { Button } from "@/components/ui/Button";
 import { Input } from "@/components/ui/Input";
 import { Switch } from "@/components/ui/Switch";
@@ -15,6 +16,7 @@ import {
 } from "@/components/settings/SettingsCard";
 import { ThemePicker } from "@/components/settings/ThemePicker";
 import { AvatarPicker } from "@/components/profile/AvatarPicker";
+import { SETTINGS_SECTIONS } from "@/components/settings/SettingsNav";
 import { CURRENT_USER_ID, getUser } from "@/lib/mock/data";
 import { useMyProfile } from "@/hooks/useMyProfile";
 import { updateMyProfile } from "@/lib/mock/profile";
@@ -50,8 +52,17 @@ export default function SettingsSectionPage({
   const [typingIndicators, setTypingIndicators] = useState(true);
   const [showLastSeen, setShowLastSeen] = useState(true);
 
+  const sectionLabel = SETTINGS_SECTIONS.find((s) => s.slug === section)?.label ?? "Settings";
+
   return (
     <div className="mx-auto w-full max-w-lg px-8 py-8">
+      <Link
+        href="/settings"
+        className="mb-4 flex items-center gap-2 text-[13.5px] font-medium text-secondary md:hidden"
+      >
+        <ArrowLeft size={18} />
+        {sectionLabel}
+      </Link>
       {section === "profile" && (
         <>
           <SettingsSectionTitle>Profile</SettingsSectionTitle>
