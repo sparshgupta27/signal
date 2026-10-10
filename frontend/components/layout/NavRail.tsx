@@ -107,7 +107,7 @@ export function NavRail() {
         open={logoutOpen}
         onOpenChange={setLogoutOpen}
         title="Log out?"
-        description="You can always sign back in with your phone number or username."
+        description="You can always sign back in with your phone number."
         confirmLabel="Log out"
         onConfirm={() => {
           api.logout().finally(() => {

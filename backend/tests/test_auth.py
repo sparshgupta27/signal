@@ -40,6 +40,29 @@ def test_refresh_rotates_the_token_and_old_one_stops_working(client, db):
     assert r3.status_code == 200
 
 
+def test_login_with_a_username_is_rejected(client, db):
+    user = make_user(db, "UsernameOnly")  # username-only account, no phone
+
+    r = client.post("/api/v1/auth/request-otp", json={"identifier": user.username})
+    assert r.status_code == 400
+
+    r = client.post("/api/v1/auth/verify-otp", json={"identifier": user.username, "code": "000000"})
+    assert r.json()["success"] is False
+
+
+def test_phone_formatting_does_not_matter_but_the_number_must_match_exactly(client, db):
+    first = _verify(client, "+91 98765 43210").json()
+    again = _verify(client, "+919876543210").json()
+    assert again["user"]["id"] == first["user"]["id"]
+    assert again["needsProfile"] is False
+
+    # Same trailing digits, different country code: a different account,
+    # not a suffix match onto the existing one.
+    other = _verify(client, "+1 98765 43210").json()
+    assert other["user"]["id"] != first["user"]["id"]
+    assert other["needsProfile"] is True
+
+
 def test_refresh_with_unknown_token_is_rejected(client):
     r = client.post("/api/v1/auth/refresh", json={"refreshToken": "not-a-real-token"})
     assert r.status_code == 401

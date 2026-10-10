@@ -1,3 +1,4 @@
+import re
 import secrets
 from datetime import datetime, timedelta, timezone
 
@@ -19,7 +20,6 @@ from ..core.security import (
     hash_token,
     new_id,
 )
-from ..directory import find_user_by_identifier
 
 router = APIRouter(prefix="/api/v1/auth", tags=["auth"])
 
@@ -30,9 +30,25 @@ router = APIRouter(prefix="/api/v1/auth", tags=["auth"])
 # won't survive a restart or scale across multiple instances.
 _pending_otps: dict[str, str] = {}
 
+# Login is phone-only: a one-time code only makes sense when there's a
+# number to send it to. A username stays a profile handle (for finding
+# people), never a way to sign in.
+_PHONE_RE = re.compile(r"^\+\d{8,15}$")
 
-def _normalize(identifier: str) -> str:
-    return identifier.strip().lower().replace(" ", "")
+
+def _normalize_phone(value: str) -> str | None:
+    """'+91 89791 87571' -> '+918979187571', or None if it isn't a full
+    international number."""
+    compact = re.sub(r"[\s\-()]", "", value)
+    return compact if _PHONE_RE.match(compact) else None
+
+
+def _find_user_by_phone(db: Session, phone: str) -> models.User | None:
+    """Exact match only — unlike the contact lookup, which also matches on a
+    trailing-digits suffix for convenience, login must never resolve to the
+    wrong account."""
+    rows = db.execute(select(models.User).where(models.User.phone.is_not(None))).scalars()
+    return next((u for u in rows if _normalize_phone(u.phone) == phone), None)
 
 
 def _generate_otp() -> str:
@@ -60,33 +76,33 @@ def _create_session(db: Session, user_id: str) -> tuple[str, str]:
 @router.post("/request-otp", response_model=schemas.RequestOtpOut)
 @limiter.limit("5/minute")
 def request_otp(request: Request, body: schemas.RequestOtpIn, db: Session = Depends(get_db)):
-    user = find_user_by_identifier(db, body.identifier)
+    phone = _normalize_phone(body.identifier)
+    if not phone:
+        raise HTTPException(400, "Enter your phone number with country code, e.g. +91 90000 00001")
+    user = _find_user_by_phone(db, phone)
     code = _generate_otp()
-    _pending_otps[_normalize(body.identifier)] = code
+    _pending_otps[phone] = code
     return schemas.RequestOtpOut(is_new_user=user is None, otp_hint=code)
 
 
 @router.post("/verify-otp", response_model=schemas.VerifyOtpOut)
 @limiter.limit("10/minute")
 def verify_otp(request: Request, body: schemas.VerifyOtpIn, db: Session = Depends(get_db)):
-    key = _normalize(body.identifier)
-    expected = _pending_otps.get(key)
+    phone = _normalize_phone(body.identifier)
+    expected = _pending_otps.get(phone) if phone else None
     if not expected or body.code != expected:
         return schemas.VerifyOtpOut(success=False)
     # Burn it on success, same as a real one-time code.
-    del _pending_otps[key]
+    del _pending_otps[phone]
 
-    user = find_user_by_identifier(db, body.identifier)
+    user = _find_user_by_phone(db, phone)
     is_new_user = user is None
 
     if user is None:
-        identifier = body.identifier.strip()
-        is_phone = identifier.replace("+", "").replace(" ", "").isdigit()
         user = models.User(
             id=new_id("u-"),
-            phone=identifier if is_phone else None,
-            username=None if is_phone else identifier.lstrip("@"),
-            display_name="New user" if is_phone else identifier,
+            phone=body.identifier.strip(),
+            display_name="New user",
             public_key=generate_mock_public_key(),
         )
         db.add(user)

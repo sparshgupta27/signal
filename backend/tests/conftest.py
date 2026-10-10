@@ -27,6 +27,7 @@ from datetime import datetime, timedelta, timezone  # noqa: E402
 
 from app import models  # noqa: E402
 from app.core.database import Base, SessionLocal, engine  # noqa: E402
+from app.core.limiter import limiter  # noqa: E402
 from app.core.security import create_access_token, generate_refresh_token, hash_token, new_id  # noqa: E402
 from app.main import app  # noqa: E402
 from app.services.conversation_service import get_or_create_direct  # noqa: E402
@@ -34,6 +35,13 @@ from app.services.conversation_service import get_or_create_direct  # noqa: E402
 # Created here, not left to app.main's lifespan — tests using only the `db`
 # fixture (no `client`) never trigger that lifespan, but still need tables.
 Base.metadata.create_all(bind=engine)
+
+
+@pytest.fixture(autouse=True)
+def _fresh_rate_limits():
+    # Every TestClient request comes from the same "testclient" address, so
+    # the per-IP OTP limits would otherwise accumulate across the whole suite.
+    limiter.reset()
 
 
 @pytest.fixture()

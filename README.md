@@ -57,7 +57,7 @@ npm install
 npm run dev
 ```
 
-Open `http://localhost:3000`. On first load you'll be routed to onboarding (`/welcome`); use a seeded demo account's phone/username to skip straight into a populated workspace (see Seed data below), or register a new one — there's no real SMS gateway, so the generated one-time code is shown directly on the verify screen instead of being texted.
+Open `http://localhost:3000`. On first load you'll be routed to onboarding (`/welcome`); log in with a seeded demo account's phone number (e.g. +91 90000 00001) to skip straight into a populated workspace. Login is phone-only; a username is just a profile handle for finding people (see Seed data below), or register a new one — there's no real SMS gateway, so the generated one-time code is shown directly on the verify screen instead of being texted.
 
 Set `NEXT_PUBLIC_API_URL` (defaults to `http://localhost:8000`) if the backend runs somewhere other than `localhost:8000`.
 
