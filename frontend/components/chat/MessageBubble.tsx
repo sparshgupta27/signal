@@ -180,7 +180,10 @@ export function MessageBubble({
           transition: swipeX ? "none" : "transform 180ms ease-out",
         }}
       >
-        <div className="relative flex items-center gap-1.5">
+        {/* max-w-full + the bubble's min-w-0 let a long one-line quoted
+            reply truncate instead of setting the bubble's minimum width,
+            which pushed the bubble off-screen on phones. */}
+        <div className="relative flex max-w-full items-center gap-1.5">
           {isOwn && (
             <HoverToolbar
               message={message}
@@ -201,7 +204,7 @@ export function MessageBubble({
           ) : (
             <div
               className={cn(
-                "relative rounded-bubble",
+                "relative min-w-0 rounded-bubble",
                 mediaOnly ? "p-1" : "px-3 py-2",
                 isOwn ? ["bg-bubble-out text-on-accent", outgoingCorner] : ["bg-bubble-in text-primary", incomingCorner]
               )}
