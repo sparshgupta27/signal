@@ -200,7 +200,7 @@ export function MessageList({
       <div
         ref={scrollRef}
         onScroll={handleScroll}
-        className="h-full overflow-y-auto bg-app pb-2 pt-3"
+        className="h-full overflow-x-hidden overflow-y-auto bg-app pb-2 pt-3"
       >
         {isLoadingOlder && (
           <div className="flex justify-center py-2">

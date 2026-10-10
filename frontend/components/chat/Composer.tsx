@@ -7,7 +7,7 @@ import type { Message, MessageAttachment } from "@/types";
 import { CameraCaptureDialog } from "@/components/dialogs/CameraCaptureDialog";
 import { IconButton } from "@/components/ui/IconButton";
 import { Menu, MenuContent, MenuItem, MenuTrigger } from "@/components/ui/Menu";
-import { senderDisplayName } from "@/lib/conversationDisplay";
+import { messageSummary, senderDisplayName } from "@/lib/conversationDisplay";
 import { formatFileSize } from "@/lib/format";
 import { dataUrlToFile, fileToChatImage } from "@/lib/image";
 import * as api from "@/lib/api";
@@ -66,6 +66,13 @@ export function Composer({
     el.style.height = "auto";
     el.style.height = `${Math.min(el.scrollHeight, 150)}px`;
   }, [value]);
+
+  // Picking Reply (hover button, long-press sheet or swipe) should land you
+  // in the text box ready to type, which on a phone also opens the keyboard.
+  const replyToId = replyTo?.id;
+  useEffect(() => {
+    if (replyToId) textareaRef.current?.focus();
+  }, [replyToId]);
 
   const canSubmit = (!!value.trim() || !!pendingAttachment) && !uploading;
 
@@ -201,7 +208,9 @@ export function Composer({
           <div className="min-w-0 flex-1 border-l-2 border-accent pl-2">
             <div className="text-[12px] font-semibold text-accent">{senderDisplayName(replyTo)}</div>
             <div className="truncate text-[12.5px] text-secondary">
-              {replyTo.deletedAt ? "This message was deleted" : replyTo.body}
+              {replyTo.deletedAt
+                ? "This message was deleted"
+                : messageSummary(replyTo.body, replyTo.attachment?.kind, replyTo.attachment?.name)}
             </div>
           </div>
           <button

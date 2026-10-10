@@ -10,9 +10,11 @@ import { ForwardDialog } from "@/components/dialogs/ForwardDialog";
 import { ConfirmDialog } from "@/components/dialogs/ConfirmDialog";
 import { MessageDetailsDialog } from "@/components/dialogs/MessageDetailsDialog";
 import { StatusIcon } from "./StatusIcon";
+import { MessageActionSheet, QUICK_REACTIONS } from "./MessageActionSheet";
 import { cn } from "@/lib/cn";
 import { formatBubbleTime, formatFileSize } from "@/lib/format";
-import { senderDisplayName } from "@/lib/conversationDisplay";
+import { messageSummary, senderDisplayName } from "@/lib/conversationDisplay";
+import { SWIPE_TRIGGER_PX, useBubbleGestures } from "@/hooks/useBubbleGestures";
 import { getCurrentUserId } from "@/lib/session";
 import { getUser } from "@/lib/users";
 import {
@@ -48,7 +50,12 @@ interface MessageBubbleProps {
   onDeleteForEveryone?: (message: Message) => void;
 }
 
-const QUICK_REACTIONS = ["❤️", "😂", "😮", "😢", "🙏", "👍"];
+function copyText(body: string) {
+  navigator.clipboard.writeText(body).then(
+    () => toast("Copied"),
+    () => toast("Couldn't copy")
+  );
+}
 
 export function MessageBubble({
   message,
@@ -74,7 +81,13 @@ export function MessageBubble({
   const [deleteForEveryoneOpen, setDeleteForEveryoneOpen] = useState(false);
   const [isEditing, setIsEditing] = useState(false);
   const [editBody, setEditBody] = useState(message.body);
+  const [actionsOpen, setActionsOpen] = useState(false);
   const editRef = useRef<HTMLTextAreaElement>(null);
+  const { swipeX, handlers: gestureHandlers } = useBubbleGestures({
+    enabled: !isEditing && !message.deletedAt,
+    onLongPress: () => setActionsOpen(true),
+    onSwipeReply: () => onReply?.(message),
+  });
 
   const startEditing = () => {
     setEditBody(message.body);
@@ -127,11 +140,24 @@ export function MessageBubble({
   return (
     <div
       className={cn(
-        "group/bubble flex px-4",
+        "group/bubble relative flex px-4",
         isOwn ? "justify-end" : "justify-start",
         isLastInRun ? "mb-3" : "mb-0.5"
       )}
     >
+      {swipeX > 0 && (
+        <span
+          aria-hidden
+          className="pointer-events-none absolute left-3 top-1/2 flex h-8 w-8 -translate-y-1/2 items-center justify-center rounded-full bg-row-hover text-secondary"
+          style={{
+            opacity: Math.min(swipeX / SWIPE_TRIGGER_PX, 1),
+            transform: `scale(${swipeX >= SWIPE_TRIGGER_PX ? 1.1 : 0.8})`,
+          }}
+        >
+          <CornerUpLeft size={16} />
+        </span>
+      )}
+
       {!isOwn && (
         <div className="mr-2 w-7 shrink-0 self-end">
           {showAvatar && avatarId ? (
@@ -140,7 +166,20 @@ export function MessageBubble({
         </div>
       )}
 
-      <div className={cn("flex max-w-[85%] flex-col md:max-w-[65%]", isOwn ? "items-end" : "items-start")}>
+      <div
+        {...gestureHandlers}
+        className={cn(
+          "flex max-w-[85%] touch-pan-y touch-pinch-zoom flex-col md:max-w-[65%]",
+          // On touch, long-press opens the action sheet (which has Copy)
+          // instead of the browser's own text-selection / save-image menu.
+          !isEditing && "pointer-coarse:select-none pointer-coarse:[-webkit-touch-callout:none]",
+          isOwn ? "items-end" : "items-start"
+        )}
+        style={{
+          transform: swipeX ? `translateX(${swipeX}px)` : undefined,
+          transition: swipeX ? "none" : "transform 180ms ease-out",
+        }}
+      >
         <div className="relative flex items-center gap-1.5">
           {isOwn && (
             <HoverToolbar
@@ -189,7 +228,13 @@ export function MessageBubble({
                     {senderDisplayName(replyToMessage)}
                   </span>
                   <span className="truncate text-[12px] opacity-80">
-                    {replyToMessage.deletedAt ? "This message was deleted" : replyToMessage.body}
+                    {replyToMessage.deletedAt
+                      ? "This message was deleted"
+                      : messageSummary(
+                          replyToMessage.body,
+                          replyToMessage.attachment?.kind,
+                          replyToMessage.attachment?.name
+                        )}
                   </span>
                 </button>
               )}
@@ -360,6 +405,20 @@ export function MessageBubble({
         )}
       </div>
 
+      <MessageActionSheet
+        message={message}
+        isOwn={isOwn}
+        open={actionsOpen}
+        onOpenChange={setActionsOpen}
+        onReact={(emoji) => onReact?.(message, emoji)}
+        onReply={() => onReply?.(message)}
+        onCopy={() => copyText(message.body)}
+        onForward={() => setForwardOpen(true)}
+        onEdit={startEditing}
+        onDetails={() => setDetailsOpen(true)}
+        onDeleteForMe={() => setDeleteForMeOpen(true)}
+        onDeleteForEveryone={() => setDeleteForEveryoneOpen(true)}
+      />
       <ForwardDialog message={forwardOpen ? message : null} onOpenChange={setForwardOpen} />
       <MessageDetailsDialog message={detailsOpen ? message : null} onOpenChange={setDetailsOpen} />
       <ConfirmDialog
@@ -415,6 +474,9 @@ function HoverToolbar({
     <div
       className={cn(
         "flex items-center gap-0.5 opacity-0 transition-opacity duration-[120ms] group-hover/bubble:opacity-100",
+        // Invisible-but-tappable on touch screens otherwise; touch uses the
+        // long-press sheet instead.
+        "pointer-coarse:hidden",
         align === "left" ? "order-first" : "order-last"
       )}
     >
@@ -465,12 +527,7 @@ function HoverToolbar({
         </MenuTrigger>
         <MenuContent align="center">
           {message.body && (
-            <MenuItem
-              onSelect={() => {
-                navigator.clipboard.writeText(message.body);
-                toast("Copied");
-              }}
-            >
+            <MenuItem onSelect={() => copyText(message.body)}>
               Copy text
             </MenuItem>
           )}
