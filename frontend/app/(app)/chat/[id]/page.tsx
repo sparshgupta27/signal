@@ -5,7 +5,7 @@ import { ChatHeader } from "@/components/chat/ChatHeader";
 import { MessageList } from "@/components/chat/MessageList";
 import { Composer } from "@/components/chat/Composer";
 import { DetailsPanel } from "@/components/details/DetailsPanel";
-import { useConversations } from "@/hooks/useConversations";
+import { useConversation } from "@/hooks/useConversations";
 import { useMessages } from "@/hooks/useMessages";
 import { useMarkRead } from "@/hooks/useMarkRead";
 import { useChatStore } from "@/store/chatStore";
@@ -17,8 +17,7 @@ import { useIsBlocked } from "@/hooks/useBlockedUsers";
 export default function ChatPage({ params }: { params: Promise<{ id: string }> }) {
   const { id: conversationId } = use(params);
 
-  const { conversations, isLoading: conversationsLoading } = useConversations();
-  const conversation = conversations.find((c) => c.id === conversationId);
+  const { conversation, isLoading: conversationsLoading } = useConversation(conversationId);
 
   const {
     messages,

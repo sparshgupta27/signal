@@ -10,11 +10,15 @@ import { archivedConversationsQueryKey, conversationsQueryKey } from "./useConve
 export function useConversationActions() {
   const queryClient = useQueryClient();
 
+  // An archived chat can be open and acted on too (mute, pin, read state),
+  // so update whichever list it's actually in.
   const patch = useCallback(
     (updated: Conversation) => {
-      queryClient.setQueryData<Conversation[]>(conversationsQueryKey, (prev) =>
-        prev ? api.sortConversations(prev.map((c) => (c.id === updated.id ? updated : c))) : prev
-      );
+      for (const key of [conversationsQueryKey, archivedConversationsQueryKey]) {
+        queryClient.setQueryData<Conversation[]>(key, (prev) =>
+          prev ? api.sortConversations(prev.map((c) => (c.id === updated.id ? updated : c))) : prev
+        );
+      }
     },
     [queryClient]
   );

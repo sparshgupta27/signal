@@ -32,7 +32,7 @@ export function ChatHeader({ conversation }: { conversation: Conversation }) {
   const presence = usePresence(conversation.type === "direct" ? otherId : undefined);
   const typingUsers = useTypingUsers(conversation.id);
   const openDetailsPanel = useUiStore((s) => s.openDetailsPanel);
-  const { toggleMute, setDisappearing } = useConversationActions();
+  const { toggleMute, setDisappearing, archive, unarchive } = useConversationActions();
   const isMobile = useIsMobile();
   const router = useRouter();
 
@@ -97,6 +97,11 @@ export function ChatHeader({ conversation }: { conversation: Conversation }) {
             )}
             <MenuItem onSelect={() => toggleMute(conversation, !conversation.isMuted)}>
               {conversation.isMuted ? "Unmute" : "Mute"}
+            </MenuItem>
+            <MenuItem
+              onSelect={() => (conversation.isArchived ? unarchive(conversation) : archive(conversation))}
+            >
+              {conversation.isArchived ? "Unarchive chat" : "Archive chat"}
             </MenuItem>
             <MenuSeparator />
             <MenuItem danger onSelect={() => toast("Chat deleted")}>
