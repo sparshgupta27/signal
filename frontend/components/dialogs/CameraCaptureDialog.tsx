@@ -106,7 +106,7 @@ export function CameraCaptureDialog({ open, onOpenChange, onCapture }: CameraCap
 
         {/* Portrait on phones (whose cameras stream portrait), landscape on
             laptops — a fixed 16:9 box made phone previews tiny. */}
-        <div className="relative flex aspect-3/4 items-center justify-center overflow-hidden rounded-lg bg-black sm:aspect-video">
+        <div className="relative flex aspect-3/4 max-h-[55dvh] w-full items-center justify-center overflow-hidden rounded-lg bg-black sm:aspect-video">
           {error ? (
             <p className="px-6 text-center text-[13.5px] text-secondary">{error}</p>
           ) : (

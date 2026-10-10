@@ -29,9 +29,14 @@ export function DialogContent({
         )}
       />
       <DialogPrimitive.Content
-        style={{ width }}
+        // The inline width beat the w-[calc(100vw-32px)] class, so on a
+        // phone narrower than `width` every dialog spilled off both sides.
+        // maxWidth inline wins over that inline width, keeping a 16px gutter.
+        style={{ width, maxWidth: "calc(100vw - 32px)" }}
         className={cn(
-          "fixed left-1/2 top-1/2 z-50 max-h-[85vh] w-[calc(100vw-32px)] -translate-x-1/2 -translate-y-1/2",
+          // dvh, not vh: on phones vh includes the area behind the browser's
+          // address bar, so 85vh could still run off the bottom.
+          "fixed left-1/2 top-1/2 z-50 max-h-[85dvh] -translate-x-1/2 -translate-y-1/2",
           "overflow-y-auto rounded-lg bg-elevated p-6 shadow-menu outline-none",
           "data-[state=open]:animate-[content-in_160ms_var(--ease-signal)]",
           "data-[state=closed]:animate-[content-out_120ms_var(--ease-signal)]",
