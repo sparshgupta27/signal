@@ -1,9 +1,12 @@
 "use client";
 
 import { useEffect, useRef, useState } from "react";
-import { Camera, RotateCcw } from "lucide-react";
+import { Camera, RotateCcw, SwitchCamera } from "lucide-react";
 import { Button } from "@/components/ui/Button";
 import { Dialog, DialogContent, DialogTitle } from "@/components/ui/Dialog";
+import { cn } from "@/lib/cn";
+
+type Facing = "user" | "environment";
 
 interface CameraCaptureDialogProps {
   open: boolean;
@@ -11,33 +14,43 @@ interface CameraCaptureDialogProps {
   onCapture: (file: File) => void;
 }
 
-/** Live webcam preview -> snap -> confirm, then hands a File back to the
+/** Live camera preview -> snap -> confirm, then hands a File back to the
  * caller to go through the same upload pipeline a picked photo does. */
 export function CameraCaptureDialog({ open, onOpenChange, onCapture }: CameraCaptureDialogProps) {
   const videoRef = useRef<HTMLVideoElement>(null);
   const streamRef = useRef<MediaStream | null>(null);
   const [capturedUrl, setCapturedUrl] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
+  // Kept across opens, so the camera you last used is the one that opens.
+  const [facing, setFacing] = useState<Facing>("user");
+  const [canFlip, setCanFlip] = useState(false);
+  // Selfies are mirrored so they match what you saw; the back camera isn't.
+  const mirror = facing === "user";
 
   useEffect(() => {
     if (!open) return;
-    // Reset-then-connect on open, same shape as useMessages' reset-then-fetch
-    // on id change — these mirror the dialog opening, not something already
-    // derivable from props.
+    // Reset-then-connect on open or camera switch, same shape as
+    // useMessages' reset-then-fetch on id change.
     // eslint-disable-next-line react-hooks/set-state-in-effect
     setCapturedUrl(null);
     setError(null);
     let cancelled = false;
 
     navigator.mediaDevices
-      ?.getUserMedia({ video: { facingMode: "user" }, audio: false })
-      .then((stream) => {
+      // "ideal", not exact: a laptop with one webcam has no back camera, and
+      // an exact constraint would fail instead of falling back to it.
+      ?.getUserMedia({ video: { facingMode: { ideal: facing } }, audio: false })
+      .then(async (stream) => {
         if (cancelled) {
           stream.getTracks().forEach((t) => t.stop());
           return;
         }
         streamRef.current = stream;
         if (videoRef.current) videoRef.current.srcObject = stream;
+        // Only meaningful after permission is granted: before that, browsers
+        // report at most one camera regardless of how many there are.
+        const devices = await navigator.mediaDevices.enumerateDevices();
+        if (!cancelled) setCanFlip(devices.filter((d) => d.kind === "videoinput").length > 1);
       })
       .catch((err: unknown) => {
         if (cancelled) return;
@@ -53,12 +66,14 @@ export function CameraCaptureDialog({ open, onOpenChange, onCapture }: CameraCap
         setError(message);
       });
 
+    // Runs before the next camera opens too — many phones can't have both
+    // cameras open at once, so the old stream must stop first.
     return () => {
       cancelled = true;
       streamRef.current?.getTracks().forEach((t) => t.stop());
       streamRef.current = null;
     };
-  }, [open]);
+  }, [open, facing]);
 
   const capture = () => {
     const video = videoRef.current;
@@ -68,10 +83,10 @@ export function CameraCaptureDialog({ open, onOpenChange, onCapture }: CameraCap
     canvas.height = video.videoHeight;
     const ctx = canvas.getContext("2d");
     if (!ctx) return;
-    // Mirrored to match the preview the user just looked at (a selfie that
-    // comes out reversed from what you saw reads as broken, not clever).
-    ctx.translate(canvas.width, 0);
-    ctx.scale(-1, 1);
+    if (mirror) {
+      ctx.translate(canvas.width, 0);
+      ctx.scale(-1, 1);
+    }
     ctx.drawImage(video, 0, 0);
     setCapturedUrl(canvas.toDataURL("image/jpeg", 0.9));
   };
@@ -89,20 +104,41 @@ export function CameraCaptureDialog({ open, onOpenChange, onCapture }: CameraCap
       <DialogContent width={480}>
         <DialogTitle className="mb-3">Take a photo</DialogTitle>
 
-        <div className="relative flex aspect-video items-center justify-center overflow-hidden rounded-lg bg-black">
+        {/* Portrait on phones (whose cameras stream portrait), landscape on
+            laptops — a fixed 16:9 box made phone previews tiny. */}
+        <div className="relative flex aspect-3/4 items-center justify-center overflow-hidden rounded-lg bg-black sm:aspect-video">
           {error ? (
             <p className="px-6 text-center text-[13.5px] text-secondary">{error}</p>
-          ) : capturedUrl ? (
-            // eslint-disable-next-line @next/next/no-img-element -- client-only captured frame, not an optimizable asset
-            <img src={capturedUrl} alt="Captured" className="h-full w-full object-contain" />
           ) : (
-            <video
-              ref={videoRef}
-              autoPlay
-              playsInline
-              muted
-              className="h-full w-full object-contain transform-[scaleX(-1)]"
-            />
+            <>
+              {/* Stays mounted under the captured photo: unmounting it lost
+                  the stream, so Retake came back to a black screen. */}
+              <video
+                ref={videoRef}
+                autoPlay
+                playsInline
+                muted
+                className={cn("h-full w-full object-contain", mirror && "-scale-x-100")}
+              />
+              {capturedUrl && (
+                // eslint-disable-next-line @next/next/no-img-element -- client-only captured frame, not an optimizable asset
+                <img
+                  src={capturedUrl}
+                  alt="Captured"
+                  className="absolute inset-0 h-full w-full bg-black object-contain"
+                />
+              )}
+              {canFlip && !capturedUrl && (
+                <button
+                  type="button"
+                  aria-label={facing === "user" ? "Switch to back camera" : "Switch to front camera"}
+                  onClick={() => setFacing((f) => (f === "user" ? "environment" : "user"))}
+                  className="absolute bottom-3 right-3 flex h-11 w-11 items-center justify-center rounded-full bg-black/55 text-white backdrop-blur-sm active:scale-95"
+                >
+                  <SwitchCamera size={20} />
+                </button>
+              )}
+            </>
           )}
         </div>
 
