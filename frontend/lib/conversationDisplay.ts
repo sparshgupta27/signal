@@ -1,4 +1,4 @@
-import type { Conversation, Message } from "@/types";
+import type { AttachmentKind, Conversation, Message } from "@/types";
 import { getCurrentUserId } from "@/lib/session";
 import { getUser } from "@/lib/users";
 
@@ -37,15 +37,20 @@ export function getPreviewText(conversation: Conversation): string {
       : conversation.type === "group"
         ? `${getUser(last.senderId)?.name.split(" ")[0] ?? "Someone"}: `
         : "";
-  const body =
-    last.attachmentKind === "image"
-      ? last.body
-        ? `📷 ${last.body}`
-        : "📷 Photo"
-      : last.attachmentKind === "file"
-        ? `📎 ${last.attachmentName ?? last.body ?? "File"}`
-        : last.body;
-  return `${prefix}${body}`;
+  return `${prefix}${messageSummary(last.body, last.attachmentKind, last.attachmentName)}`;
+}
+
+/** One-line text for a message that may be media-only — shared by the chat
+ * list preview, the in-app new-message toast and the browser notification. */
+export function messageSummary(
+  body: string,
+  attachmentKind?: AttachmentKind | null,
+  attachmentName?: string | null
+): string {
+  if (attachmentKind === "image") return body ? `📷 ${body}` : "📷 Photo";
+  if (attachmentKind === "video") return body ? `🎥 ${body}` : "🎥 Video";
+  if (attachmentKind === "file") return body ? `📎 ${body}` : `📎 ${attachmentName ?? "File"}`;
+  return body;
 }
 
 export function senderDisplayName(message: Message): string {

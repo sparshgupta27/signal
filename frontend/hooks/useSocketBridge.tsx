@@ -8,6 +8,7 @@ import type { Conversation } from "@/types";
 import * as api from "@/lib/api";
 import { getCurrentUserId, getRefreshToken, setTokens } from "@/lib/session";
 import { showMessageNotification } from "@/lib/notifications";
+import { messageSummary } from "@/lib/conversationDisplay";
 import { getUser, getUsersVersion, primeUser, primeUsers, subscribeUsers } from "@/lib/users";
 import { sortConversations } from "@/lib/api";
 import { wsClient } from "@/lib/ws";
@@ -140,11 +141,16 @@ export function useSocketBridge() {
         return;
       }
 
+      const summary = messageSummary(
+        message.body,
+        message.attachment?.kind,
+        message.attachment?.name
+      );
       const notificationTitle =
         conversation.type === "group" ? `${sender.name} in ${conversation.name}` : sender.name;
       showMessageNotification({
         title: notificationTitle,
-        body: message.body || "Sent an attachment",
+        body: summary,
         icon: sender.avatarUrl ?? undefined,
         onClick: () => router.push(`/chat/${message.conversationId}`),
       });
@@ -161,7 +167,7 @@ export function useSocketBridge() {
               {sender.name}
               {conversation.type === "group" ? ` in ${conversation.name}` : ""}
             </span>
-            <span className="block truncate text-[13px] text-secondary">{message.body}</span>
+            <span className="block truncate text-[13px] text-secondary">{summary}</span>
           </span>
         </button>
       ));

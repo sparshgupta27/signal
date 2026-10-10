@@ -106,6 +106,10 @@ class ConversationSummaryOut(CamelModel):
     type: str
     created_at: datetime
     deleted_at: datetime | None = None
+    # So the chat list can say "📷 Photo" for a caption-less image instead of
+    # an empty preview line.
+    attachment_kind: str | None = None
+    attachment_name: str | None = None
 
 
 class GroupMemberOut(CamelModel):

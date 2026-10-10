@@ -26,7 +26,7 @@ def directory_user_out(
     return schemas.DirectoryUserOut(**base.model_dump(), is_contact=is_contact)
 
 
-def _attachment_kind(mime_type: str) -> str:
+def attachment_kind(mime_type: str) -> str:
     if mime_type.startswith("image/"):
         return "image"
     if mime_type.startswith("video/"):
@@ -37,7 +37,7 @@ def _attachment_kind(mime_type: str) -> str:
 def attachment_out(attachment: models.Attachment) -> schemas.AttachmentOut:
     return schemas.AttachmentOut(
         id=attachment.id,
-        kind=_attachment_kind(attachment.mime_type),
+        kind=attachment_kind(attachment.mime_type),
         url=f"/api/v1/uploads/{attachment.id}",
         name=attachment.file_name,
         size=attachment.size_bytes,

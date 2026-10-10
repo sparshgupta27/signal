@@ -119,7 +119,7 @@ interface RawAttachment {
 
 function mapAttachment(raw: RawAttachment): MessageAttachment {
   return {
-    kind: raw.kind === "image" ? "image" : "file",
+    kind: raw.kind === "image" || raw.kind === "video" ? raw.kind : "file",
     url: attachmentUrl(raw.url),
     name: raw.name,
     size: raw.size,

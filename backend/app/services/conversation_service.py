@@ -4,7 +4,7 @@ from fastapi import HTTPException
 from sqlalchemy import func, select
 from sqlalchemy.orm import Session
 
-from .. import models, schemas
+from .. import mappers, models, schemas
 from ..core.security import new_id
 
 
@@ -78,6 +78,13 @@ def build_conversation_out(
     last_msg = _last_message(db, conversation.id)
     last_message_out = None
     if last_msg:
+        attachment = None
+        if last_msg.deleted_at is None:
+            attachment = db.execute(
+                select(models.Attachment)
+                .where(models.Attachment.message_id == last_msg.id)
+                .limit(1)
+            ).scalar_one_or_none()
         last_message_out = schemas.ConversationSummaryOut(
             id=last_msg.id,
             body=last_msg.body,
@@ -85,6 +92,8 @@ def build_conversation_out(
             type=last_msg.type,
             created_at=last_msg.created_at,
             deleted_at=last_msg.deleted_at,
+            attachment_kind=mappers.attachment_kind(attachment.mime_type) if attachment else None,
+            attachment_name=attachment.file_name if attachment else None,
         )
 
     return schemas.ConversationOut(
