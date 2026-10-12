@@ -46,6 +46,22 @@ def create_group(db: Session, creator_id: str, name: str, member_ids: list[str])
     return conversation
 
 
+def rename_group(
+    db: Session, conversation: models.Conversation, actor_id: str, name: str
+) -> models.Message:
+    """Returns the system message announcing the change, so the caller can
+    broadcast it the same way add/remove/role changes are surfaced."""
+    conversation.name = name
+    msg = _system_message(
+        conversation.id, {"action": "name_changed", "actorId": actor_id, "value": name}
+    )
+    db.add(msg)
+    conversation.last_message_at = msg.created_at
+    db.commit()
+    db.refresh(msg)
+    return msg
+
+
 def add_members(
     db: Session, conversation: models.Conversation, actor_id: str, user_ids: list[str]
 ) -> None:

@@ -17,6 +17,15 @@ export function useGroupActions() {
     [queryClient]
   );
 
+  const renameGroup = useCallback(
+    async (conversationId: string, name: string) => {
+      const updated = await api.renameGroup(conversationId, name);
+      patch(updated);
+      toast("Group name updated");
+    },
+    [patch]
+  );
+
   const addMembers = useCallback(
     async (conversationId: string, userIds: string[]) => {
       const updated = await api.addMembers(conversationId, userIds);
@@ -44,5 +53,5 @@ export function useGroupActions() {
     [patch]
   );
 
-  return { addMembers, removeMember, setMemberRole };
+  return { renameGroup, addMembers, removeMember, setMemberRole };
 }

@@ -251,6 +251,10 @@ class MarkReadIn(CamelModel):
 # --- groups ---------------------------------------------------------------------
 
 
+class UpdateGroupIn(CamelModel):
+    name: str
+
+
 class AddMembersIn(CamelModel):
     user_ids: list[str]
 

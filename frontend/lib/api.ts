@@ -351,6 +351,13 @@ export function createGroup(input: { name: string; memberIds: string[] }): Promi
   return request("/api/v1/groups", { method: "POST", body: JSON.stringify(input) });
 }
 
+export function renameGroup(conversationId: string, name: string): Promise<Conversation> {
+  return request(`/api/v1/groups/${conversationId}`, {
+    method: "PATCH",
+    body: JSON.stringify({ name }),
+  });
+}
+
 export function addMembers(conversationId: string, userIds: string[]): Promise<Conversation> {
   return request(`/api/v1/groups/${conversationId}/members`, {
     method: "POST",

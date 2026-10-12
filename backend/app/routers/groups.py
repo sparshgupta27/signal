@@ -5,7 +5,7 @@ from .. import models, schemas
 from ..core.database import get_db
 from ..core.deps import get_current_user
 from ..services import conversation_service, group_service
-from ..ws.broadcast import broadcast_conversation_updated
+from ..ws.broadcast import broadcast_conversation_updated, broadcast_message_new
 
 router = APIRouter(prefix="/api/v1/groups", tags=["groups"])
 
@@ -14,6 +14,12 @@ def _require_admin(db: Session, conversation_id: str, user_id: str) -> None:
     participant = conversation_service.get_participant(db, conversation_id, user_id)
     if not participant or participant.role != "admin" or participant.left_at is not None:
         raise HTTPException(403, "Admins only")
+
+
+def _require_member(db: Session, conversation_id: str, user_id: str) -> None:
+    participant = conversation_service.get_participant(db, conversation_id, user_id)
+    if not participant or participant.left_at is not None:
+        raise HTTPException(403, "Not a member")
 
 
 def _get_conversation(db: Session, conversation_id: str) -> models.Conversation:
@@ -30,6 +36,28 @@ def create_group(
     db: Session = Depends(get_db),
 ):
     conversation = group_service.create_group(db, user.id, body.name, body.member_ids)
+    return conversation_service.build_conversation_out(db, conversation, user.id)
+
+
+@router.patch("/{conversation_id}", response_model=schemas.ConversationOut)
+async def rename_group(
+    conversation_id: str,
+    body: schemas.UpdateGroupIn,
+    user: models.User = Depends(get_current_user),
+    db: Session = Depends(get_db),
+):
+    # Any active member may rename the group (Signal's default); role changes
+    # and membership edits below stay admin-only.
+    _require_member(db, conversation_id, user.id)
+    conversation = _get_conversation(db, conversation_id)
+    name = body.name.strip()
+    if not name:
+        raise HTTPException(422, "Group name cannot be empty")
+    if name != conversation.name:
+        message = group_service.rename_group(db, conversation, user.id, name)
+        member_ids = conversation_service.active_member_ids(db, conversation_id)
+        await broadcast_message_new(db, message, member_ids)
+        await broadcast_conversation_updated(db, conversation, member_ids)
     return conversation_service.build_conversation_out(db, conversation, user.id)
 
 

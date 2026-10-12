@@ -3,12 +3,13 @@
 import { useState } from "react";
 import { useRouter } from "next/navigation";
 import { toast } from "sonner";
-import { Bell, BellOff, Search, Shield, ShieldOff, Timer, UserMinus, UserPlus, Users } from "lucide-react";
+import { Bell, BellOff, Pencil, Search, Shield, ShieldOff, Timer, UserMinus, UserPlus, Users } from "lucide-react";
 import type { Conversation } from "@/types";
 import { Avatar } from "@/components/ui/Avatar";
 import { Menu, MenuContent, MenuItem, MenuTrigger } from "@/components/ui/Menu";
 import { ConfirmDialog } from "@/components/dialogs/ConfirmDialog";
 import { AddMembersDialog } from "@/components/dialogs/AddMembersDialog";
+import { RenameGroupDialog } from "@/components/dialogs/RenameGroupDialog";
 import { DisappearingMessagesDialog } from "@/components/dialogs/DisappearingMessagesDialog";
 import { getCurrentUserId } from "@/lib/session";
 import { getUser } from "@/lib/users";
@@ -39,17 +40,19 @@ function ActionTile({
 
 export function GroupDetails({ conversation }: { conversation: Conversation }) {
   const [addOpen, setAddOpen] = useState(false);
+  const [renameOpen, setRenameOpen] = useState(false);
   const [leaveOpen, setLeaveOpen] = useState(false);
   const [removeTarget, setRemoveTarget] = useState<string | null>(null);
   const [disappearingOpen, setDisappearingOpen] = useState(false);
   const router = useRouter();
 
   const { toggleMute, setDisappearing } = useConversationActions();
-  const { removeMember, setMemberRole } = useGroupActions();
+  const { renameGroup, removeMember, setMemberRole } = useGroupActions();
 
   const activeMembers = (conversation.members ?? []).filter((m) => !m.leftAt);
   const me = activeMembers.find((m) => m.userId === getCurrentUserId());
   const isAdmin = me?.role === "admin";
+  const isMember = me !== undefined;
 
   return (
     <div className="py-4">
@@ -57,7 +60,19 @@ export function GroupDetails({ conversation }: { conversation: Conversation }) {
         <div className="flex h-20 w-20 items-center justify-center rounded-full bg-sidebar text-[26px] font-semibold text-secondary">
           {conversation.name?.[0]?.toUpperCase() ?? "G"}
         </div>
-        <h2 className="text-[18px] font-semibold text-primary">{conversation.name}</h2>
+        <div className="flex items-center gap-1.5">
+          <h2 className="text-[18px] font-semibold text-primary">{conversation.name}</h2>
+          {isMember && (
+            <button
+              type="button"
+              aria-label="Edit group name"
+              onClick={() => setRenameOpen(true)}
+              className="flex h-7 w-7 items-center justify-center rounded-full text-secondary hover:bg-row-hover hover:text-primary"
+            >
+              <Pencil size={15} strokeWidth={1.75} />
+            </button>
+          )}
+        </div>
         <p className="text-[13px] text-secondary">Group · {activeMembers.length} members</p>
       </div>
 
@@ -169,6 +184,13 @@ export function GroupDetails({ conversation }: { conversation: Conversation }) {
       </div>
 
       <AddMembersDialog conversation={conversation} open={addOpen} onOpenChange={setAddOpen} />
+
+      <RenameGroupDialog
+        open={renameOpen}
+        onOpenChange={setRenameOpen}
+        currentName={conversation.name ?? ""}
+        onConfirm={(name) => renameGroup(conversation.id, name)}
+      />
 
       <ConfirmDialog
         open={removeTarget !== null}
