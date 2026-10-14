@@ -2,6 +2,7 @@ import os
 
 from app import models
 from app.core.config import settings
+from app.services import block_service
 from app.services.message_service import create_message
 from app.services.upload_service import save_upload
 
@@ -113,3 +114,31 @@ def test_cannot_forward_a_message_from_a_conversation_not_a_member_of(client, db
         headers=auth_headers(stranger.id),
     )
     assert r.status_code == 403
+
+
+def test_forward_skips_a_dm_where_either_side_has_blocked_the_other(client, db):
+    alice = make_user(db, "AliceF5")
+    bob = make_user(db, "BobF5")
+    carol = make_user(db, "CarolF5")
+    convo_ab = make_direct_conversation(db, alice.id, bob.id)
+    convo_ac = make_direct_conversation(db, alice.id, carol.id)
+
+    msg = create_message(db, convo_ac, alice.id, "client-f5", "forward me", None)
+    _make_attachment(db, alice.id, msg.id)
+    # Bob blocked Alice — the same rule a live send uses, so a forward must
+    # not get through either.
+    block_service.block_user(db, bob.id, alice.id)
+
+    r = client.post(
+        f"/api/v1/messages/{msg.id}/forward",
+        json={"conversationIds": [convo_ab.id, convo_ac.id]},
+        headers=auth_headers(alice.id),
+    )
+    assert r.status_code == 200
+    assert [m["conversationId"] for m in r.json()] == [convo_ac.id]
+
+    db.expire_all()
+    assert db.query(models.Message).filter_by(conversation_id=convo_ab.id).count() == 0
+    # Skipped before the attachment was duplicated: only the original and
+    # the one copy for the allowed target exist.
+    assert db.query(models.Attachment).filter_by(uploader_id=alice.id).count() == 2
