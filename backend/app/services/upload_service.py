@@ -1,3 +1,11 @@
+"""Attachment files on disk: save an upload, copy one for a forward, and
+decide who may download it.
+
+Where it sits: called by routers/uploads.py (save, can_access) and by
+services/message_service.forward_message (duplicate_attachment). Files live
+under settings.upload_dir; the Attachment row holds the metadata.
+"""
+
 import os
 import shutil
 

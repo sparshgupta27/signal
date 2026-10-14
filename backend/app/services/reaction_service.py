@@ -1,3 +1,9 @@
+"""Emoji reactions: set (replacing my previous one) or remove.
+
+Where it sits: called only by routers/reactions.py. Both functions return
+the message's full reaction list, ready for the reaction.updated broadcast.
+"""
+
 from sqlalchemy import select
 from sqlalchemy.orm import Session
 
@@ -24,6 +30,7 @@ def set_reaction(db: Session, message_id: str, user_id: str, emoji: str) -> list
 
 
 def remove_reaction(db: Session, message_id: str, user_id: str) -> list[dict]:
+    """No-op if I had no reaction; still returns the current list."""
     existing = db.get(models.MessageReaction, (message_id, user_id))
     if existing:
         db.delete(existing)

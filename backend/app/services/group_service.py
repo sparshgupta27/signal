@@ -1,3 +1,10 @@
+"""Group mutations: create, rename, add members, remove/leave, change role.
+
+Where it sits: called only by routers/groups.py, which has already checked
+permissions. Every change also writes a "system" message (e.g. "X added Y")
+into the timeline; the router broadcasts the result.
+"""
+
 from datetime import datetime, timezone
 
 from sqlalchemy.orm import Session
@@ -8,10 +15,12 @@ from .conversation_service import active_member_ids
 
 
 def _system_message(conversation_id: str, event: dict) -> models.Message:
-    sid = new_id("sys-")
+    """An unsaved timeline entry with no sender; `event` is
+    {action, actorId, targetId?, value?}, rendered by the frontend."""
+    message_id = new_id("sys-")
     return models.Message(
-        id=sid,
-        client_id=sid,
+        id=message_id,
+        client_id=message_id,
         conversation_id=conversation_id,
         sender_id=None,
         type="system",
@@ -25,6 +34,7 @@ def _system_message(conversation_id: str, event: dict) -> models.Message:
 
 
 def create_group(db: Session, creator_id: str, name: str, member_ids: list[str]) -> models.Conversation:
+    """The creator joins as admin, everyone else as member."""
     conversation = models.Conversation(id=new_id("group-"), type="group", name=name, created_by=creator_id)
     db.add(conversation)
     db.flush()
@@ -65,6 +75,8 @@ def rename_group(
 def add_members(
     db: Session, conversation: models.Conversation, actor_id: str, user_ids: list[str]
 ) -> None:
+    """Skips people already in the group; someone who left before gets their
+    old row back (left_at cleared) rather than a new one."""
     existing = set(active_member_ids(db, conversation.id))
     last_created_at = None
     for uid in user_ids:
@@ -90,6 +102,8 @@ def add_members(
 def remove_member(
     db: Session, conversation: models.Conversation, actor_id: str, user_id: str
 ) -> None:
+    """Soft remove: sets left_at, keeping the row and history. actor ==
+    user means they left; otherwise an admin removed them."""
     participant = db.get(models.ConversationParticipant, (conversation.id, user_id))
     if not participant or participant.left_at is not None:
         return

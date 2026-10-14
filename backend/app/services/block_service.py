@@ -1,3 +1,10 @@
+"""Blocking: block/unblock, list who I've blocked, and the symmetric check.
+
+Where it sits: CRUD for routers/users.py; any_block_between is the rule
+applied when a DM message is sent (ws/router.py::_handle_send) or
+forwarded (message_service.forward_message).
+"""
+
 from sqlalchemy import select
 from sqlalchemy.orm import Session
 
@@ -18,6 +25,7 @@ def block_user(db: Session, owner_id: str, blocked_id: str) -> bool:
 
 
 def unblock_user(db: Session, owner_id: str, blocked_id: str) -> bool:
+    """Idempotent — returns False if there was no block."""
     row = db.get(models.BlockedUser, (owner_id, blocked_id))
     if not row:
         return False

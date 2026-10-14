@@ -1,3 +1,12 @@
+"""Conversations and membership: who is in a chat, the per-viewer chat-list
+row, listing/sorting, get-or-create DM, and the disappearing timer.
+
+Where it sits: the most shared service. Routers, the WebSocket handlers,
+ws/broadcast.py and the other services all ask it "who are the active
+members?" (active_member_ids) and "is this user in it?" (get_participant).
+Membership checks are done by callers, not here (set_disappearing excepted).
+"""
+
 from datetime import datetime, timezone
 
 from fastapi import HTTPException
@@ -9,6 +18,8 @@ from ..core.security import new_id
 
 
 def active_member_ids(db: Session, conversation_id: str) -> list[str]:
+    """Everyone currently in the chat (left_at IS NULL) — the recipient list
+    for every broadcast and the member set used to compute message status."""
     rows = (
         db.execute(
             select(models.ConversationParticipant.user_id).where(
@@ -25,6 +36,8 @@ def active_member_ids(db: Session, conversation_id: str) -> list[str]:
 def get_participant(
     db: Session, conversation_id: str, user_id: str
 ) -> models.ConversationParticipant | None:
+    """The membership row, including for members who have left — callers
+    decide whether left_at matters for what they're doing."""
     return db.get(models.ConversationParticipant, (conversation_id, user_id))
 
 
@@ -69,6 +82,9 @@ def _last_message(
 def build_conversation_out(
     db: Session, conversation: models.Conversation, viewer_id: str
 ) -> schemas.ConversationOut:
+    """One chat-list row as `viewer_id` sees it: members, last-message
+    preview, their unread count and their pin/mute/archive flags. Built per
+    viewer, which is why broadcasts build it once per recipient."""
     participant = get_participant(db, conversation.id, viewer_id)
     member_ids = active_member_ids(db, conversation.id)
     until = visible_until(participant) if participant else None
@@ -136,6 +152,8 @@ def build_conversation_out(
 def _list_conversations_for_user(
     db: Session, user_id: str, *, archived: bool
 ) -> list[schemas.ConversationOut]:
+    """Chats the user is active in, filtered by archived flag, pinned first,
+    then most recent activity first."""
     rows = (
         db.execute(
             select(models.Conversation)
@@ -193,6 +211,8 @@ def list_media_for_conversation(
 
 
 def get_or_create_direct(db: Session, user_id: str, other_id: str) -> models.Conversation:
+    """The DM between two users. dm_key is both ids sorted and joined, so
+    A->B and B->A find the same row; its UNIQUE constraint backs this up."""
     key = ":".join(sorted([user_id, other_id]))
     existing = db.execute(
         select(models.Conversation).where(models.Conversation.dm_key == key)
@@ -226,10 +246,10 @@ def set_disappearing(
     conversation.disappearing_seconds = seconds
 
     now = datetime.now(timezone.utc)
-    sid = new_id("sys-")
+    message_id = new_id("sys-")
     message = models.Message(
-        id=sid,
-        client_id=sid,
+        id=message_id,
+        client_id=message_id,
         conversation_id=conversation.id,
         sender_id=None,
         type="system",
