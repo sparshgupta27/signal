@@ -1,3 +1,10 @@
+"""The global search box: chats by title, contacts by name, and messages by
+text.
+
+Where it sits: called only by routers/search.py. Everything is scoped to the
+conversations the caller is currently an active member of.
+"""
+
 from sqlalchemy import select
 from sqlalchemy.orm import Session
 
@@ -6,19 +13,22 @@ from . import conversation_service, message_service
 
 
 def _escape_like(value: str) -> str:
+    """Makes %, _ and \\ in the user's query match literally in a LIKE."""
     return value.replace("\\", "\\\\").replace("%", "\\%").replace("_", "\\_")
 
 
 def search(db: Session, user_id: str, query: str) -> schemas.SearchResultsOut:
-    q = query.strip()
-    if not q:
+    """Titles and names are matched case-insensitively in Python; message
+    bodies with an escaped ILIKE, newest 20 first."""
+    text = query.strip()
+    if not text:
         return schemas.SearchResultsOut(conversations=[], contacts=[], messages=[])
-    ql = q.lower()
+    needle = text.lower()
 
     # The same scope as the chat list — and the only universe message search
     # is allowed to touch. A conversation the user has left (left_at set)
     # never appears here, so its messages are excluded too.
-    rows = (
+    my_conversations = (
         db.execute(
             select(models.Conversation)
             .join(
@@ -33,20 +43,28 @@ def search(db: Session, user_id: str, query: str) -> schemas.SearchResultsOut:
         .scalars()
         .all()
     )
-    by_conv_id = {c.id: c for c in rows}
+    conversations_by_id = {c.id: c for c in my_conversations}
 
+    # A group's title is its name; a DM's title is the other person's name.
     matched_conversations = []
-    for c in rows:
-        if c.type == "group":
-            title = c.name or ""
+    for conversation in my_conversations:
+        if conversation.type == "group":
+            title = conversation.name or ""
         else:
             other_id = next(
-                (m for m in conversation_service.active_member_ids(db, c.id) if m != user_id), None
+                (
+                    uid
+                    for uid in conversation_service.active_member_ids(db, conversation.id)
+                    if uid != user_id
+                ),
+                None,
             )
             other = db.get(models.User, other_id) if other_id else None
             title = other.display_name if other else ""
-        if ql in title.lower():
-            matched_conversations.append(conversation_service.build_conversation_out(db, c, user_id))
+        if needle in title.lower():
+            matched_conversations.append(
+                conversation_service.build_conversation_out(db, conversation, user_id)
+            )
 
     contact_rows = (
         db.execute(select(models.Contact).where(models.Contact.owner_id == user_id)).scalars().all()
@@ -54,17 +72,17 @@ def search(db: Session, user_id: str, query: str) -> schemas.SearchResultsOut:
     matched_contacts = []
     for contact in contact_rows:
         target = db.get(models.User, contact.contact_id)
-        if target and ql in target.display_name.lower():
+        if target and needle in target.display_name.lower():
             matched_contacts.append(mappers.directory_user_out(target, True, user_id))
 
     matched_messages: list[schemas.SearchMessageHitOut] = []
-    if by_conv_id:
-        escaped = _escape_like(q)
+    if conversations_by_id:
+        escaped = _escape_like(text)
         message_rows = (
             db.execute(
                 select(models.Message)
                 .where(
-                    models.Message.conversation_id.in_(by_conv_id.keys()),
+                    models.Message.conversation_id.in_(conversations_by_id.keys()),
                     models.Message.type == "text",
                     models.Message.deleted_at.is_(None),
                     models.Message.body.ilike(f"%{escaped}%", escape="\\"),
@@ -75,13 +93,13 @@ def search(db: Session, user_id: str, query: str) -> schemas.SearchResultsOut:
             .scalars()
             .all()
         )
-        for m in message_rows:
-            conversation = by_conv_id[m.conversation_id]
-            member_ids = conversation_service.active_member_ids(db, m.conversation_id)
+        for message in message_rows:
+            conversation = conversations_by_id[message.conversation_id]
+            member_ids = conversation_service.active_member_ids(db, message.conversation_id)
             matched_messages.append(
                 schemas.SearchMessageHitOut(
                     conversation=conversation_service.build_conversation_out(db, conversation, user_id),
-                    message=message_service.message_out(db, m, member_ids),
+                    message=message_service.message_out(db, message, member_ids),
                 )
             )
 
