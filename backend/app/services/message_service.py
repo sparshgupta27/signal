@@ -7,7 +7,7 @@ from sqlalchemy.orm import Session
 from .. import mappers, models, schemas
 from ..core.config import settings
 from ..core.security import mock_encrypt, new_id
-from . import upload_service
+from . import block_service, upload_service
 from .conversation_service import active_member_ids, get_participant
 
 
@@ -239,6 +239,14 @@ def forward_message(
         conversation = db.get(models.Conversation, conversation_id)
         if not conversation:
             continue
+        # Same rule as a live send (ws/router.py::_handle_send): a block in
+        # either direction means nothing gets into that DM.
+        if conversation.type == "direct":
+            other_id = next(
+                (uid for uid in active_member_ids(db, conversation_id) if uid != sender_id), None
+            )
+            if other_id and block_service.any_block_between(db, sender_id, other_id):
+                continue
 
         attachment_ids = [
             upload_service.duplicate_attachment(db, a, sender_id).id for a in source_attachments
