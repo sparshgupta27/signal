@@ -1,3 +1,11 @@
+"""The database schema: one SQLAlchemy model per table.
+
+Where it sits: the bottom layer. Services query and write these; mappers.py
+turns them into the camelCase schemas.py shapes sent to clients. Tables are
+created by Base.metadata.create_all() in main.lifespan (no migrations; see
+core/database.ensure_columns). Full write-up: INTERVIEW/db-schema.md.
+"""
+
 from __future__ import annotations
 
 import uuid
@@ -10,6 +18,8 @@ from .core.database import Base
 
 
 def gen_id() -> str:
+    """Fallback column default only — app code always passes an explicit id
+    from core.security.new_id()."""
     return uuid.uuid4().hex
 
 
@@ -18,6 +28,9 @@ def utcnow() -> datetime:
 
 
 class User(Base):
+    """An account. Signs in by phone; username is an optional handle for
+    being found. At least one of the two must be set (CHECK constraint)."""
+
     __tablename__ = "users"
 
     id: Mapped[str] = mapped_column(primary_key=True, default=gen_id)
@@ -59,6 +72,9 @@ class AuthSession(Base):
 
 
 class Contact(Base):
+    """Directed address-book entry: owner has contact saved. Independent of
+    whether the two share a conversation."""
+
     __tablename__ = "contacts"
 
     owner_id: Mapped[str] = mapped_column(ForeignKey("users.id", ondelete="CASCADE"), primary_key=True)
@@ -68,6 +84,9 @@ class Contact(Base):
 
 
 class BlockedUser(Base):
+    """Directed block. The messaging rule is symmetric — see
+    services/block_service.any_block_between."""
+
     __tablename__ = "blocked_users"
 
     owner_id: Mapped[str] = mapped_column(ForeignKey("users.id", ondelete="CASCADE"), primary_key=True)
@@ -76,6 +95,9 @@ class BlockedUser(Base):
 
 
 class Conversation(Base):
+    """A chat — both 1:1 DMs and groups live in this one table, told apart by
+    `type`. Membership is in ConversationParticipant."""
+
     __tablename__ = "conversations"
 
     id: Mapped[str] = mapped_column(primary_key=True, default=gen_id)
@@ -96,6 +118,10 @@ class Conversation(Base):
 
 
 class ConversationParticipant(Base):
+    """Membership join table, plus the per-member state that belongs to the
+    (user, conversation) pair: role, last_read_at (drives the unread count),
+    pin/mute/archive, and left_at — a soft remove that keeps history."""
+
     __tablename__ = "conversation_participants"
 
     conversation_id: Mapped[str] = mapped_column(
@@ -114,6 +140,10 @@ class ConversationParticipant(Base):
 
 
 class Message(Base):
+    """One timeline entry. type is "text" (sent by a user) or "system"
+    (sender_id NULL, details in system_event). deleted_at is the global
+    soft delete used for "delete for everyone" and expiry."""
+
     __tablename__ = "messages"
 
     id: Mapped[str] = mapped_column(primary_key=True, default=gen_id)
@@ -164,6 +194,9 @@ class MessageHiddenForUser(Base):
 
 
 class Attachment(Base):
+    """Metadata for an uploaded file; the bytes live on disk under
+    settings.upload_dir. Uploaded first, linked to a message on send."""
+
     __tablename__ = "attachments"
 
     id: Mapped[str] = mapped_column(primary_key=True, default=gen_id)
@@ -187,6 +220,9 @@ class Attachment(Base):
 
 
 class MessageReaction(Base):
+    """One emoji per (message, user) — the composite primary key is what
+    enforces "one reaction per person"."""
+
     __tablename__ = "message_reactions"
 
     message_id: Mapped[str] = mapped_column(
@@ -198,6 +234,10 @@ class MessageReaction(Base):
 
 
 class MessageReceipt(Base):
+    """Per-recipient delivery/read timestamps for one message. A message's
+    sent/delivered/read status is computed from these rows
+    (services/message_service.compute_status), never stored."""
+
     __tablename__ = "message_receipts"
 
     message_id: Mapped[str] = mapped_column(
