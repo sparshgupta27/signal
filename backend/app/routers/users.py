@@ -1,3 +1,11 @@
+"""People endpoints: my profile, the user directory, lookup by phone/username,
+blocking, and the "Load demo data" button.
+
+Where it sits: REST only, mostly thin. Block rules live in
+services/block_service.py, lookup matching in directory.py, demo data in
+seeding.py.
+"""
+
 import re
 
 from fastapi import APIRouter, Depends, HTTPException
@@ -29,6 +37,8 @@ def update_me(
     user: models.User = Depends(get_current_user),
     db: Session = Depends(get_db),
 ):
+    """Partial update: only fields that are present (not None) change. A
+    blank name is ignored; avatarUrl "" clears the avatar (null is ignored)."""
     if body.name is not None and body.name.strip():
         user.display_name = body.name.strip()
     if body.about is not None:
@@ -91,6 +101,7 @@ def unblock_user(
 
 @router.get("", response_model=list[schemas.UserOut])
 def list_users(user: models.User = Depends(get_current_user), db: Session = Depends(get_db)):
+    """Everyone except me — the frontend primes its user cache with this."""
     rows = db.execute(select(models.User).where(models.User.id != user.id)).scalars().all()
     return [mappers.user_out(u, user.id) for u in rows]
 
@@ -101,6 +112,7 @@ def lookup_user(
     user: models.User = Depends(get_current_user),
     db: Session = Depends(get_db),
 ):
+    """"Add contact" search box: null if nobody matches, or if it's me."""
     found = find_user_by_identifier(db, identifier)
     if not found or found.id == user.id:
         return None

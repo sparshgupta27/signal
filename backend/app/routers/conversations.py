@@ -1,3 +1,12 @@
+"""Chat-level endpoints: the chat list (active and archived), one conversation,
+its shared media, start-a-DM, the disappearing-message timer, and my
+per-chat flags (pin/mute/archive).
+
+Where it sits: REST -> services/conversation_service.py. Changes everyone
+sees (the timer) are pushed live through ws/broadcast.py; my own flags are
+not broadcast. Message history lives in routers/messages.py.
+"""
+
 from fastapi import APIRouter, Depends, HTTPException
 from sqlalchemy.orm import Session
 
@@ -31,6 +40,7 @@ def get_conversation(
     user: models.User = Depends(get_current_user),
     db: Session = Depends(get_db),
 ):
+    """One chat, built for the caller (unread count and flags are per viewer)."""
     conversation = db.get(models.Conversation, conversation_id)
     if not conversation:
         raise HTTPException(404, "Not found")
@@ -61,6 +71,7 @@ def create_direct(
     user: models.User = Depends(get_current_user),
     db: Session = Depends(get_db),
 ):
+    """Get-or-create: the same pair always gets the same DM (dm_key is UNIQUE)."""
     conversation = conversation_service.get_or_create_direct(db, user.id, body.user_id)
     return conversation_service.build_conversation_out(db, conversation, user.id)
 
@@ -76,6 +87,8 @@ async def update_conversation(
     if not conversation:
         raise HTTPException(404, "Not found")
 
+    # model_fields_set tells "sent as null" (turn the timer off) apart from
+    # "not sent at all". Membership/admin checks happen in set_disappearing.
     if "disappearing_seconds" in body.model_fields_set:
         message = conversation_service.set_disappearing(
             db, conversation, user.id, body.disappearing_seconds
@@ -94,6 +107,7 @@ def update_my_flags(
     user: models.User = Depends(get_current_user),
     db: Session = Depends(get_db),
 ):
+    """My own pin/mute/archive — stored on my participant row, not broadcast."""
     conversation = db.get(models.Conversation, conversation_id)
     if not conversation:
         raise HTTPException(404, "Not found")

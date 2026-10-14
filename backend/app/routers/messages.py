@@ -1,3 +1,13 @@
+"""Conversation-scoped message endpoints: paginated history and REST
+"mark all read".
+
+Where it sits: REST -> services/message_service.py. The prefix is
+/conversations because both URLs are /conversations/{id}/...; message-scoped
+actions (/messages/{id}/...) live in message_actions.py, reactions.py and
+forward.py. Sending a message is NOT here — it goes over the WebSocket
+(ws/router.py::_handle_send).
+"""
+
 from datetime import datetime, timezone
 
 from fastapi import APIRouter, Depends, HTTPException
@@ -23,6 +33,10 @@ def get_messages(
     user: models.User = Depends(get_current_user),
     db: Session = Depends(get_db),
 ):
+    """Newest-first cursor pagination: `before` is the id of the oldest
+    message the client already has. Fetches PAGE_SIZE + 1 rows to learn
+    whether there's more, and returns the page oldest-first. Hides my
+    "delete for me" messages; a member who left sees only up to left_at."""
     participant = conversation_service.get_participant(db, conversation_id, user.id)
     if not participant:
         raise HTTPException(403, "Not a member")

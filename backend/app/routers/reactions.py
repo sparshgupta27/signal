@@ -1,3 +1,9 @@
+"""Set or remove my reaction on a message (one emoji per person per message).
+
+Where it sits: REST -> services/reaction_service.py, then broadcasts
+reaction.updated carrying the message's full reaction list.
+"""
+
 from fastapi import APIRouter, Depends, HTTPException
 from sqlalchemy.orm import Session
 
@@ -11,6 +17,7 @@ router = APIRouter(prefix="/api/v1/messages", tags=["reactions"])
 
 
 def _get_message_for_member(db: Session, message_id: str, user_id: str) -> models.Message:
+    """404 if missing; 403 unless the caller is an active member."""
     message = db.get(models.Message, message_id)
     if not message:
         raise HTTPException(404, "Not found")

@@ -1,3 +1,12 @@
+"""File upload and download.
+
+Where it sits: a file is uploaded first (POST, returns an id); a WebSocket
+message.send then references that id, and
+services/message_service.create_message links it to the message. Downloads
+are access-checked (services/upload_service.can_access) and authenticated by
+a ?token= query parameter, because <img src> can't send an auth header.
+"""
+
 import os
 
 from fastapi import APIRouter, Depends, Form, HTTPException, Query, Request, UploadFile
@@ -24,6 +33,8 @@ async def create_upload(
     user: models.User = Depends(get_current_user),
     db: Session = Depends(get_db),
 ):
+    """Reads the whole file, rejects empty (400) or oversized (413) uploads,
+    and stores it under a generated name, not yet linked to any message."""
     data = await file.read()
     if not data:
         raise HTTPException(400, "Empty file")

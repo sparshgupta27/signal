@@ -1,3 +1,11 @@
+"""Message-scoped actions: edit, delete for me, delete for everyone, and the
+per-recipient receipts behind "Message details".
+
+Where it sits: REST -> services/message_service.py. Edits and
+deletes-for-everyone are pushed live via ws/broadcast.py; delete-for-me is
+private and not broadcast.
+"""
+
 from fastapi import APIRouter, Depends, HTTPException
 from sqlalchemy.orm import Session
 
@@ -11,6 +19,7 @@ router = APIRouter(prefix="/api/v1/messages", tags=["messages"])
 
 
 def _get_active_message_for_member(db: Session, message_id: str, user_id: str) -> models.Message:
+    """404 if missing or already deleted; 403 unless the caller is an active member."""
     message = db.get(models.Message, message_id)
     if not message or message.deleted_at is not None:
         raise HTTPException(404, "Not found")
@@ -27,6 +36,7 @@ async def edit_message(
     user: models.User = Depends(get_current_user),
     db: Session = Depends(get_db),
 ):
+    """Sender only, text messages only. Broadcasts message.edited."""
     message = _get_active_message_for_member(db, message_id, user.id)
     if message.sender_id != user.id:
         raise HTTPException(403, "Only the sender can edit this message")
@@ -45,6 +55,7 @@ async def delete_message_for_me(
     user: models.User = Depends(get_current_user),
     db: Session = Depends(get_db),
 ):
+    """Hides the message from my own history only. Not broadcast."""
     message = db.get(models.Message, message_id)
     if not message:
         raise HTTPException(404, "Not found")
@@ -60,6 +71,8 @@ async def delete_message_for_everyone(
     user: models.User = Depends(get_current_user),
     db: Session = Depends(get_db),
 ):
+    """Sender only: tombstones the message (blank body, files removed) and
+    broadcasts message.deleted."""
     message = _get_active_message_for_member(db, message_id, user.id)
     if message.sender_id != user.id:
         raise HTTPException(403, "Only the sender can delete this message for everyone")
@@ -75,6 +88,7 @@ def get_message_receipts(
     user: models.User = Depends(get_current_user),
     db: Session = Depends(get_db),
 ):
+    """Sender only: delivered/read time for each other active member."""
     message = _get_active_message_for_member(db, message_id, user.id)
     if message.sender_id != user.id:
         raise HTTPException(403, "Only the sender can view message details")

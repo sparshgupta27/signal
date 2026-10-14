@@ -1,3 +1,12 @@
+"""Sign-in endpoints: phone + one-time code -> access/refresh tokens, silent
+refresh, and logout.
+
+Where it sits: called by the frontend's (auth) pages and by lib/api.ts's
+silent refresh. Unlike the other routers it holds state of its own:
+`_pending_otps`, an in-memory dict of issued codes. Minting tokens is
+core/security.py; checking them on later requests is core/deps.py.
+"""
+
 import re
 import secrets
 from datetime import datetime, timedelta, timezone
@@ -76,6 +85,8 @@ def _create_session(db: Session, user_id: str) -> tuple[str, str]:
 @router.post("/request-otp", response_model=schemas.RequestOtpOut)
 @limiter.limit("5/minute")
 def request_otp(request: Request, body: schemas.RequestOtpIn, db: Session = Depends(get_db)):
+    """Step 1: validate the phone, issue a 6-digit code and return it (SMS is
+    mocked). isNewUser tells the UI whether verifying will create an account."""
     phone = _normalize_phone(body.identifier)
     if not phone:
         raise HTTPException(400, "Enter your phone number with country code, e.g. +91 90000 00001")
@@ -88,6 +99,9 @@ def request_otp(request: Request, body: schemas.RequestOtpIn, db: Session = Depe
 @router.post("/verify-otp", response_model=schemas.VerifyOtpOut)
 @limiter.limit("10/minute")
 def verify_otp(request: Request, body: schemas.VerifyOtpIn, db: Session = Depends(get_db)):
+    """Step 2: check and burn the code, create the user on first sign-in, and
+    start a session. A wrong code is HTTP 200 with success=false — the
+    frontend branches on that flag rather than on a status code."""
     phone = _normalize_phone(body.identifier)
     expected = _pending_otps.get(phone) if phone else None
     if not expected or body.code != expected:

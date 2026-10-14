@@ -1,3 +1,10 @@
+"""Forward one message into several of my chats.
+
+Where it sits: REST -> services/message_service.forward_message, which
+silently skips chats I can't post to (including blocked DMs) and copies any
+attachment; then message.new + conversation.updated go out for each copy.
+"""
+
 from fastapi import APIRouter, Depends, HTTPException
 from sqlalchemy.orm import Session
 

@@ -1,3 +1,12 @@
+"""Group management: create, rename, add/remove members (removing yourself =
+leaving), and change roles.
+
+Where it sits: REST -> services/group_service.py, which writes a system
+message for each change; this router then pushes conversation.updated (plus
+message.new for renames) via ws/broadcast.py. Permission checks are the
+_require_* helpers at the top.
+"""
+
 from fastapi import APIRouter, Depends, HTTPException
 from sqlalchemy.orm import Session
 
@@ -35,6 +44,8 @@ def create_group(
     user: models.User = Depends(get_current_user),
     db: Session = Depends(get_db),
 ):
+    """The creator becomes admin. Not broadcast: other members first see the
+    group when it gets its first message (or on their next list fetch)."""
     conversation = group_service.create_group(db, user.id, body.name, body.member_ids)
     return conversation_service.build_conversation_out(db, conversation, user.id)
 

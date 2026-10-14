@@ -1,3 +1,9 @@
+"""Address-book endpoints: list, add and remove contacts.
+
+Where it sits: REST only. The queries are inline here — there's no service
+layer because it's plain CRUD on the contacts table.
+"""
+
 from fastapi import APIRouter, Depends, HTTPException
 from sqlalchemy import select
 from sqlalchemy.orm import Session

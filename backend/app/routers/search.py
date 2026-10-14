@@ -1,3 +1,6 @@
+"""The global search box. A thin pass-through to services/search_service.py.
+"""
+
 from fastapi import APIRouter, Depends
 from sqlalchemy.orm import Session
 
