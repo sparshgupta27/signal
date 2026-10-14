@@ -21,7 +21,7 @@ Register with any phone number — there's no real SMS gateway, so the one-time 
 | Backend | FastAPI, SQLAlchemy 2.0, Pydantic v2, raw WebSockets, slowapi (rate limiting) |
 | Database | SQLite (WAL mode) |
 | Auth | Per-request OTP (`secrets.randbelow`, rate-limited) + JWT (PyJWT), bearer token on REST, token query param on the WS/upload handshakes |
-| Real-time | A single `/api/v1/ws` WebSocket per connected client, fanned out by an in-memory connection manager |
+| Real-time | A single `/ws` WebSocket per connected client, fanned out by an in-memory connection manager |
 | Deployment | Frontend on Vercel; backend on a single VPS (systemd-managed Uvicorn process on localhost) behind Caddy, which terminates TLS (auto-renewed Let's Encrypt cert) and reverse-proxies HTTP + WebSockets, on a free sslip.io hostname so no domain purchase is needed |
 
 ## Repository layout
@@ -117,17 +117,17 @@ All REST routes are prefixed `/api/v1`.
 | PATCH | `/conversations/{id}` | Set the conversation's disappearing-message timer (DM: either member; group: admins only) |
 | PATCH | `/conversations/{id}/me` | Update the caller's own per-conversation state (mute/pin/archive/read) |
 | GET | `/conversations/{id}/messages` | Paginated message history (cursor via `before`) |
-| POST | `/messages/{id}/read` | REST mark-all-read up to a message (the WS equivalent needs an open connection; this doesn't) |
+| POST | `/conversations/{id}/read` | REST mark-all-read through the conversation's latest message (the WS `message.read` equivalent needs an open connection; this doesn't) |
 | PUT / DELETE | `/messages/{id}/reaction` | Set / remove the caller's reaction (one per person per message) |
 | POST | `/messages/{id}/forward` | Forward a message into one or more conversations the caller is a member of; any attachment is duplicated (its own file on disk), not re-linked |
-| POST | `/uploads` | Upload an attachment (multipart, 10MB cap, rate-limited 20/min) — returns an id before any message references it |
+| POST | `/uploads` | Upload an attachment (multipart, 50MB cap via `MAX_UPLOAD_BYTES`, rate-limited 20/min) — returns an id before any message references it |
 | GET | `/uploads/{id}?token=...` | Serve an attachment, membership-checked (token in the query string — `<img src>`/`<a href>` can't set an `Authorization` header) |
 | GET | `/search?q=...` | Search conversations/contacts/messages, scoped to the caller's current memberships, with `%`/`_` escaped in the `LIKE` pattern |
 | POST | `/groups` | Create a group |
 | POST | `/groups/{id}/members` | Add members (admin only) |
 | DELETE | `/groups/{id}/members/{member_id}` | Remove a member (admin only) |
 | PATCH | `/groups/{id}/members/{member_id}` | Promote/demote a member's role (admin only) |
-| WS | `/ws?token=...` | Single bidirectional channel for `message.send`, `message.delivered`, `message.read`, `typing` (client→server) and `message.new`, `message.status`, `message.deleted`, `reaction.updated`, `conversation.updated`, `typing`, `presence` (server→client) |
+| WS | `/ws?token=...` (not under `/api/v1`) | Single bidirectional channel for `message.send`, `message.delivered`, `message.read`, `typing` (client→server) and `message.new`, `message.status`, `message.deleted`, `reaction.updated`, `conversation.updated`, `typing`, `presence` (server→client) |
 
 ## Seed data
 
