@@ -1,7 +1,18 @@
+"""ORM row → wire shape converters (models.py → schemas.py).
+
+Where it sits: called by routers and services right before returning or
+broadcasting data. Kept as plain functions because the wire shape isn't a
+1:1 copy of the table: fields are renamed (display_name → name), derived
+(attachment kind, download URL), or hidden depending on who is looking
+(last_seen_at).
+"""
+
 from . import models, schemas
 
 
 def user_out(user: models.User, viewer_id: str | None = None) -> schemas.UserOut:
+    """`viewer_id` is who will see this: the "hide last seen" privacy rule
+    depends on whether the viewer is the user themselves."""
     is_self = viewer_id is not None and viewer_id == user.id
     return schemas.UserOut(
         id=user.id,
@@ -27,6 +38,7 @@ def directory_user_out(
 
 
 def attachment_kind(mime_type: str) -> str:
+    """'image' | 'video' | 'file' — derived on the fly, not stored."""
     if mime_type.startswith("image/"):
         return "image"
     if mime_type.startswith("video/"):
@@ -35,6 +47,8 @@ def attachment_kind(mime_type: str) -> str:
 
 
 def attachment_out(attachment: models.Attachment) -> schemas.AttachmentOut:
+    """The URL points at the access-checked download route, not at the file
+    on disk; the frontend appends ?token= to it (lib/api.ts::attachmentUrl)."""
     return schemas.AttachmentOut(
         id=attachment.id,
         kind=attachment_kind(attachment.mime_type),
