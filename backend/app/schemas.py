@@ -1,3 +1,11 @@
+"""Wire shapes: every request body (`*In`) and response (`*Out`) the API uses.
+
+Where it sits: between routers and clients. FastAPI validates request bodies
+against the `*In` models (422 on mismatch) and serializes `*Out` models as
+camelCase JSON. WebSocket payloads reuse the same `*Out` models via
+ws/broadcast.json_payload. mappers.py builds the `*Out` models from ORM rows.
+"""
+
 from __future__ import annotations
 
 from datetime import datetime
@@ -22,7 +30,8 @@ class RequestOtpIn(CamelModel):
 
 class RequestOtpOut(CamelModel):
     is_new_user: bool
-    otp_hint: str = "123456"
+    # The real one-time code, returned because SMS delivery is mocked.
+    otp_hint: str
 
 
 class VerifyOtpIn(CamelModel):
@@ -165,7 +174,7 @@ class UpdateConversationIn(CamelModel):
 
 class AttachmentOut(CamelModel):
     id: str
-    kind: str  # 'image' | 'file' — derived from mime_type, not stored separately
+    kind: str  # 'image' | 'video' | 'file' — derived from mime_type (mappers.attachment_kind)
     url: str
     name: str
     size: int
@@ -204,13 +213,6 @@ class MessagePageOut(CamelModel):
     has_more: bool
 
 
-class SendMessageIn(CamelModel):
-    client_id: str
-    body: str
-    reply_to_id: str | None = None
-    attachment_ids: list[str] = []
-
-
 class ForwardMessageIn(CamelModel):
     conversation_ids: list[str]
 
@@ -229,23 +231,13 @@ class MessageReceiptsOut(CamelModel):
     receipts: list[MessageReceiptOut]
 
 
-class UploadOut(CamelModel):
-    id: str
-    kind: str
-    url: str
-    name: str
-    size: int
-    mime_type: str
-    width: int | None = None
-    height: int | None = None
+class UploadOut(AttachmentOut):
+    """Response of POST /uploads — the same shape as an attachment on a
+    message, returned before any message references it."""
 
 
 class SetReactionIn(CamelModel):
     emoji: str
-
-
-class MarkReadIn(CamelModel):
-    up_to_message_id: str
 
 
 # --- groups ---------------------------------------------------------------------
