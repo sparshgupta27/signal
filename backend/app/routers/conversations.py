@@ -49,7 +49,9 @@ def get_shared_media(
     participant = conversation_service.get_participant(db, conversation_id, user.id)
     if not participant:
         raise HTTPException(403, "Not a member")
-    attachments = conversation_service.list_media_for_conversation(db, conversation_id)
+    attachments = conversation_service.list_media_for_conversation(
+        db, conversation_id, conversation_service.visible_until(participant)
+    )
     return [mappers.attachment_out(a) for a in attachments]
 
 

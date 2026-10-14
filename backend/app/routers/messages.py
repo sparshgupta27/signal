@@ -38,6 +38,9 @@ def get_messages(
         anchor = db.get(models.Message, before)
         if anchor:
             query = query.where(models.Message.created_at < anchor.created_at)
+    until = conversation_service.visible_until(participant)
+    if until is not None:
+        query = query.where(models.Message.created_at <= until)
     query = query.order_by(models.Message.created_at.desc()).limit(PAGE_SIZE + 1)
 
     rows = db.execute(query).scalars().all()

@@ -7,7 +7,7 @@ from sqlalchemy.orm import Session
 from .. import models
 from ..core.config import settings
 from ..core.security import new_id
-from .conversation_service import get_participant
+from .conversation_service import get_participant, visible_until
 
 
 def save_upload(
@@ -75,10 +75,15 @@ def duplicate_attachment(db: Session, source: models.Attachment, uploader_id: st
 
 def can_access(db: Session, attachment: models.Attachment, user_id: str) -> bool:
     """Not yet attached to a message: only its uploader can see it (mid
-    compose). Attached: anyone currently in that message's conversation."""
+    compose). Attached: anyone in that message's conversation — or, for a
+    member who has since left, only if it was sent before they left."""
     if attachment.message_id is None:
         return attachment.uploader_id == user_id
     message = db.get(models.Message, attachment.message_id)
     if not message:
         return False
-    return get_participant(db, message.conversation_id, user_id) is not None
+    participant = get_participant(db, message.conversation_id, user_id)
+    if participant is None:
+        return False
+    until = visible_until(participant)
+    return until is None or message.created_at <= until

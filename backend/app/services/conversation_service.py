@@ -28,8 +28,19 @@ def get_participant(
     return db.get(models.ConversationParticipant, (conversation_id, user_id))
 
 
+def visible_until(participant: models.ConversationParticipant) -> datetime | None:
+    """A member who left (or was removed) keeps read access to the history
+    up to the moment they left, but nothing after it — returns that cutoff,
+    or None for an active member (no cutoff)."""
+    return participant.left_at
+
+
 def _unread_count(
-    db: Session, conversation_id: str, user_id: str, last_read_at: datetime | None
+    db: Session,
+    conversation_id: str,
+    user_id: str,
+    last_read_at: datetime | None,
+    until: datetime | None = None,
 ) -> int:
     query = select(func.count(models.Message.id)).where(
         models.Message.conversation_id == conversation_id,
@@ -39,15 +50,19 @@ def _unread_count(
     )
     if last_read_at is not None:
         query = query.where(models.Message.created_at > last_read_at)
+    if until is not None:
+        query = query.where(models.Message.created_at <= until)
     return db.execute(query).scalar_one()
 
 
-def _last_message(db: Session, conversation_id: str) -> models.Message | None:
+def _last_message(
+    db: Session, conversation_id: str, until: datetime | None = None
+) -> models.Message | None:
+    query = select(models.Message).where(models.Message.conversation_id == conversation_id)
+    if until is not None:
+        query = query.where(models.Message.created_at <= until)
     return db.execute(
-        select(models.Message)
-        .where(models.Message.conversation_id == conversation_id)
-        .order_by(models.Message.created_at.desc())
-        .limit(1)
+        query.order_by(models.Message.created_at.desc()).limit(1)
     ).scalar_one_or_none()
 
 
@@ -56,6 +71,7 @@ def build_conversation_out(
 ) -> schemas.ConversationOut:
     participant = get_participant(db, conversation.id, viewer_id)
     member_ids = active_member_ids(db, conversation.id)
+    until = visible_until(participant) if participant else None
 
     members_out = None
     if conversation.type == "group":
@@ -75,7 +91,7 @@ def build_conversation_out(
             for r in rows
         ]
 
-    last_msg = _last_message(db, conversation.id)
+    last_msg = _last_message(db, conversation.id, until)
     last_message_out = None
     if last_msg:
         attachment = None
@@ -108,7 +124,7 @@ def build_conversation_out(
         last_message=last_message_out,
         last_message_at=conversation.last_message_at,
         unread_count=_unread_count(
-            db, conversation.id, viewer_id, participant.last_read_at if participant else None
+            db, conversation.id, viewer_id, participant.last_read_at if participant else None, until
         ),
         is_pinned=participant.is_pinned if participant else False,
         is_muted=participant.is_muted if participant else False,
@@ -154,22 +170,25 @@ def list_archived_conversations_for_user(db: Session, user_id: str) -> list[sche
     return _list_conversations_for_user(db, user_id, archived=True)
 
 
-def list_media_for_conversation(db: Session, conversation_id: str) -> list[models.Attachment]:
+def list_media_for_conversation(
+    db: Session, conversation_id: str, until: datetime | None = None
+) -> list[models.Attachment]:
     """Every attachment still attached to a non-deleted message in this
-    conversation, most recent first. Caller is responsible for the
+    conversation, most recent first — limited to messages sent at or before
+    `until` when given (see visible_until). Caller is responsible for the
     membership check (same discipline as the rest of this module)."""
-    return list(
-        db.execute(
-            select(models.Attachment)
-            .join(models.Message, models.Attachment.message_id == models.Message.id)
-            .where(
-                models.Message.conversation_id == conversation_id,
-                models.Message.deleted_at.is_(None),
-            )
-            .order_by(models.Attachment.created_at.desc())
+    query = (
+        select(models.Attachment)
+        .join(models.Message, models.Attachment.message_id == models.Message.id)
+        .where(
+            models.Message.conversation_id == conversation_id,
+            models.Message.deleted_at.is_(None),
         )
-        .scalars()
-        .all()
+    )
+    if until is not None:
+        query = query.where(models.Message.created_at <= until)
+    return list(
+        db.execute(query.order_by(models.Attachment.created_at.desc())).scalars().all()
     )
 
 

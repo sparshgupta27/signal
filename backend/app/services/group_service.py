@@ -93,11 +93,14 @@ def remove_member(
     participant = db.get(models.ConversationParticipant, (conversation.id, user_id))
     if not participant or participant.left_at is not None:
         return
-    participant.left_at = datetime.now(timezone.utc)
     action = "member_left" if actor_id == user_id else "member_removed"
     msg = _system_message(
         conversation.id, {"action": action, "actorId": actor_id, "targetId": user_id}
     )
+    # Same instant as the announcement, so the leaver's history (which is
+    # cut off at left_at — see conversation_service.visible_until) still
+    # ends with the "X removed you" / "you left" message itself.
+    participant.left_at = msg.created_at
     db.add(msg)
     conversation.last_message_at = msg.created_at
     db.commit()
