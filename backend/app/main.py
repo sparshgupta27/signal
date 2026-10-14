@@ -1,3 +1,15 @@
+"""App entry point: `uvicorn app.main:app`.
+
+Where it sits: the top. Builds the FastAPI app, wires middleware (rate
+limiting, CORS) and every router, and owns the process lifecycle — on
+startup it creates tables, adds late columns, seeds an empty database and
+starts the disappearing-message sweep; on shutdown it stops the sweep.
+
+Request flow from here: router (routers/*, ws/router.py) → service
+(services/*) → models/DB → mappers/schemas → response, plus ws/broadcast.py
+for live events.
+"""
+
 import asyncio
 from contextlib import asynccontextmanager
 
@@ -50,6 +62,7 @@ async def _disappearing_sweep_loop() -> None:
 
 @asynccontextmanager
 async def lifespan(_app: FastAPI):
+    """Startup work before `yield`, shutdown work after it."""
     Base.metadata.create_all(bind=engine)
     ensure_columns()
 
@@ -88,6 +101,7 @@ app.add_middleware(
     allow_headers=["*"],
 )
 
+# All REST routers are prefixed /api/v1/...; the WebSocket router serves /ws.
 app.include_router(auth.router)
 app.include_router(users.router)
 app.include_router(contacts.router)
@@ -104,4 +118,5 @@ app.include_router(ws_router)
 
 @app.get("/api/v1/health")
 def health():
+    """Liveness only — proves the process answers; it doesn't touch the DB."""
     return {"status": "ok"}

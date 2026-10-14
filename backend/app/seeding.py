@@ -4,6 +4,11 @@ self-heals into a populated demo instead of opening empty.
 
 Timestamps are computed relative to `now()` at seed time, not fixed dates —
 a fixed "Oct 3" would read as "Today" once and stale forever after.
+
+Where it sits: beside the request flow, not in it. main.lifespan calls
+run_seed / seed_missing_demo_dms / backfill_public_keys at startup;
+routers/users.py calls seed_demo_data_for_user / remove_demo_data_for_user
+for the "Load demo data" button. Writes ORM rows directly (no services).
 """
 
 from datetime import datetime, timedelta, timezone
@@ -370,6 +375,9 @@ def backfill_public_keys(db: Session) -> None:
 
 
 def run_seed(db: Session) -> None:
+    """Full demo dataset — 8 users, DMs (unread, pinned, muted, disappearing),
+    and two groups (one with a removed member). Does nothing if any user
+    already exists, so it never touches a live database."""
     if db.query(models.User).count() > 0:
         return
 
@@ -488,8 +496,8 @@ def run_seed(db: Session) -> None:
     _add_participant(db, trip.id, "demo", role="admin", last_read_at=clock.ago(minutes=25), joined_at=trip.created_at)
     _add_participant(db, trip.id, "aarav", last_read_at=clock.now, joined_at=trip.created_at)
     _add_participant(db, trip.id, "priya", last_read_at=clock.now, joined_at=trip.created_at)
-    rohan_p = _add_participant(db, trip.id, "rohan", last_read_at=removed_at, joined_at=trip.created_at)
-    rohan_p.left_at = removed_at
+    rohan_participant = _add_participant(db, trip.id, "rohan", last_read_at=removed_at, joined_at=trip.created_at)
+    rohan_participant.left_at = removed_at
 
     # --- group: Family (demo admin) -------------------------------------------
     family = models.Conversation(
