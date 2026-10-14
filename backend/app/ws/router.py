@@ -1,3 +1,13 @@
+"""The single WebSocket endpoint, /ws: authenticate, track presence, and
+dispatch the four client->server events.
+
+Where it sits: the live-event entry point, parallel to the REST routers.
+Client events: message.send, message.delivered, message.read, typing.
+Each handler validates, calls a service, then fans out the result via
+ws/broadcast.py / ws/manager.py. Invalid events are dropped silently —
+there are no error frames.
+"""
+
 import json
 import logging
 from datetime import datetime, timezone
@@ -18,6 +28,9 @@ logger = logging.getLogger(__name__)
 
 @router.websocket("/ws")
 async def ws_endpoint(websocket: WebSocket, token: str = Query(...)):
+    """One connection's whole life: auth on connect (rejected before accept),
+    presence online on the user's first socket, a receive loop, presence
+    offline when their last socket closes. Holds one DB session throughout."""
     db: Session = SessionLocal()
     user = resolve_user_from_token(db, token)
     if not user:
@@ -83,20 +96,23 @@ async def ws_endpoint(websocket: WebSocket, token: str = Query(...)):
 
 
 async def _handle_event(db: Session, user_id: str, event: dict) -> None:
-    etype = event.get("type")
+    event_type = event.get("type")
     data = event.get("data") or {}
 
-    if etype == "message.send":
+    if event_type == "message.send":
         await _handle_send(db, user_id, data)
-    elif etype == "message.delivered":
+    elif event_type == "message.delivered":
         await _handle_delivered(db, user_id, data)
-    elif etype == "message.read":
+    elif event_type == "message.read":
         await _handle_read(db, user_id, data)
-    elif etype == "typing":
+    elif event_type == "typing":
         await _handle_typing(db, user_id, data)
 
 
 async def _handle_send(db: Session, user_id: str, data: dict) -> None:
+    """Validate (active member, conversation exists, no block in a DM),
+    create the message, broadcast message.new + conversation.updated, then
+    mark it delivered for recipients who are online right now."""
     conversation_id = data.get("conversationId")
     client_id = data.get("clientId")
     body = (data.get("body") or "").strip()
@@ -138,6 +154,7 @@ async def _handle_send(db: Session, user_id: str, data: dict) -> None:
 
 
 async def _handle_delivered(db: Session, user_id: str, data: dict) -> None:
+    """The client's ack that it has these messages; broadcasts new statuses."""
     message_ids = data.get("messageIds") or []
     updated = message_service.mark_delivered(db, user_id, message_ids)
     for message in updated:
@@ -149,6 +166,9 @@ async def _handle_delivered(db: Session, user_id: str, data: dict) -> None:
 
 
 async def _handle_read(db: Session, user_id: str, data: dict) -> None:
+    """WS twin of REST POST /conversations/{id}/read (the current frontend
+    uses the REST one). Broadcasts statuses; the reader gets their own
+    updated conversation."""
     conversation_id = data.get("conversationId")
     up_to_message_id = data.get("upToMessageId")
     if not conversation_id or not up_to_message_id:
@@ -172,6 +192,7 @@ async def _handle_read(db: Session, user_id: str, data: dict) -> None:
 
 
 async def _handle_typing(db: Session, user_id: str, data: dict) -> None:
+    """Relayed to the other members as-is; nothing is stored."""
     conversation_id = data.get("conversationId")
     is_typing = bool(data.get("isTyping"))
     if not conversation_id:
