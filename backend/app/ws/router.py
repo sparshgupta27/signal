@@ -1,4 +1,5 @@
 import json
+import logging
 from datetime import datetime, timezone
 
 from fastapi import APIRouter, Query, WebSocket, WebSocketDisconnect
@@ -12,6 +13,7 @@ from .broadcast import broadcast_conversation_updated, broadcast_message_new, br
 from .manager import manager
 
 router = APIRouter()
+logger = logging.getLogger(__name__)
 
 
 @router.websocket("/ws")
@@ -41,7 +43,18 @@ async def ws_endpoint(websocket: WebSocket, token: str = Query(...)):
                 event = json.loads(raw)
             except ValueError:
                 continue
-            await _handle_event(db, user_id, event)
+            try:
+                await _handle_event(db, user_id, event)
+            except WebSocketDisconnect:
+                raise
+            except Exception:
+                # One bad frame (e.g. a replyToId that doesn't exist, or a
+                # non-object "data") must not take the whole connection down
+                # — and must not leave this long-lived session in a failed
+                # transaction, which would break the offline/presence commit
+                # in the finally block below.
+                db.rollback()
+                logger.exception("Dropped a WebSocket event from user %s", user_id)
     except WebSocketDisconnect:
         pass
     finally:
