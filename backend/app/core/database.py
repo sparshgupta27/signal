@@ -1,3 +1,13 @@
+"""Database plumbing: the SQLite engine, the session factory, and the
+declarative Base every model inherits from.
+
+Where it sits: below models.py. Routers get a per-request session through
+`get_db`; the WebSocket endpoint and the background sweep open their own
+`SessionLocal()`. Also home to `UTCDateTime` (keeps timestamps tz-aware on
+SQLite) and `ensure_columns` (the startup column-adder used instead of a
+migration framework).
+"""
+
 from datetime import datetime, timezone
 
 from sqlalchemy import DateTime, create_engine, event, inspect, text
@@ -52,6 +62,7 @@ SessionLocal = sessionmaker(bind=engine, autoflush=False, autocommit=False)
 
 
 def get_db():
+    """FastAPI dependency: one session per request, always closed afterwards."""
     db = SessionLocal()
     try:
         yield db
@@ -76,6 +87,9 @@ _PENDING_COLUMNS: list[tuple[str, str, str]] = [
 
 
 def ensure_columns() -> None:
+    """Called once from main.lifespan, after create_all(): adds any
+    _PENDING_COLUMNS entry missing from an existing table. The f-string SQL
+    is built only from the constants above, never from user input."""
     inspector = inspect(engine)
     with engine.begin() as conn:
         for table, column, ddl_type in _PENDING_COLUMNS:

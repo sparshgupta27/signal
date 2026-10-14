@@ -1,3 +1,11 @@
+"""Token and ID primitives: access JWTs, refresh tokens, ID generation, and
+the mock-E2EE helpers.
+
+Where it sits: pure functions, no DB access. routers/auth.py mints tokens
+with these; core/deps.py decodes them on every authenticated request; the
+services call new_id() for every row they create.
+"""
+
 import base64
 import hashlib
 import secrets
@@ -10,9 +18,10 @@ from .config import settings
 
 
 def create_access_token(user_id: str, session_id: str) -> str:
-    """Short-lived (15 min) — session_id ties it to an auth_sessions row so
-    logout (which revokes that row) takes effect immediately instead of
-    waiting out whatever's left of the token's own expiry."""
+    """Short-lived (settings.access_token_expire_minutes, 15 by default).
+    Claims: sub (user id), sid (session id), iat, exp. The sid ties the
+    token to an auth_sessions row, so logout (which revokes that row) takes
+    effect immediately instead of waiting out the token's own expiry."""
     now = int(time.time())
     payload = {
         "sub": user_id,
@@ -38,6 +47,8 @@ def decode_access_token(token: str) -> tuple[str, str] | None:
 
 
 def generate_refresh_token() -> str:
+    """32 random bytes, URL-safe. High-entropy, which is why a plain sha256
+    (hash_token) is enough to store it — no slow password hash needed."""
     return secrets.token_urlsafe(32)
 
 
@@ -48,6 +59,9 @@ def hash_token(token: str) -> str:
 
 
 def new_id(prefix: str = "") -> str:
+    """Primary keys for every row the app creates: a readable type prefix
+    ("u-", "m-", "group-", …) + 24 random hex chars. Not guessable, and known
+    before insert, so callers can reference a row's id before flushing."""
     return f"{prefix}{uuid.uuid4().hex[:24]}"
 
 

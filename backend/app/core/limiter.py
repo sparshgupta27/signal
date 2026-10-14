@@ -1,3 +1,10 @@
+"""Shared rate limiter (slowapi), keyed by client IP.
+
+Where it sits: registered on the app in main.py; applied with
+`@limiter.limit(...)` on request-otp, verify-otp, refresh and uploads.
+Exceeding a limit returns 429.
+"""
+
 from slowapi import Limiter
 from slowapi.util import get_remote_address
 

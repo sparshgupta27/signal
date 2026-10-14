@@ -1,3 +1,10 @@
+"""Authentication dependency: turns a bearer token into a `models.User`.
+
+Where it sits: between the HTTP request and every protected route handler
+(`Depends(get_current_user)`). The WebSocket endpoint and GET /uploads/{id}
+call `resolve_user_from_token` directly, with a token from the query string.
+"""
+
 from datetime import datetime, timezone
 
 from fastapi import Depends, HTTPException, status
@@ -35,6 +42,8 @@ def get_current_user(
     credentials: HTTPAuthorizationCredentials | None = Depends(bearer_scheme),
     db: Session = Depends(get_db),
 ) -> models.User:
+    """Route guard for every authenticated REST endpoint: 401 if the header
+    is missing, or the token is invalid, expired, or its session revoked."""
     if credentials is None:
         raise HTTPException(status.HTTP_401_UNAUTHORIZED, "Not authenticated")
     user = resolve_user_from_token(db, credentials.credentials)
