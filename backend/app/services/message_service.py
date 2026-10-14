@@ -1,3 +1,12 @@
+"""Message lifecycle: create, serialize (with derived status), edit, delete,
+forward, delivery/read receipts, and disappearing-message expiry.
+
+Where it sits: the core service, called by both surfaces — the WebSocket
+handlers (ws/router.py: send, delivered, read) and the REST routers
+(messages.py, message_actions.py, forward.py) — plus main.py's background
+sweep. Never broadcasts itself; callers pass results to ws/broadcast.py.
+"""
+
 import os
 from datetime import datetime, timedelta, timezone
 
@@ -12,6 +21,7 @@ from .conversation_service import active_member_ids, get_participant
 
 
 def _delete_attachments(db: Session, message_id: str) -> None:
+    """Removes the files from disk (already-missing files are fine) and the rows."""
     for attachment in db.execute(
         select(models.Attachment).where(models.Attachment.message_id == message_id)
     ).scalars():
@@ -20,6 +30,16 @@ def _delete_attachments(db: Session, message_id: str) -> None:
         except OSError:
             pass
         db.delete(attachment)
+
+
+def _tombstone(db: Session, message: models.Message, at: datetime) -> None:
+    """The one soft delete, shared by delete-for-everyone, the expiry sweep
+    and lazy expiry: the row stays (so the timeline shows "This message was
+    deleted" in place) but its content and files are gone. Caller commits."""
+    message.deleted_at = at
+    message.body = ""
+    message.ciphertext = None
+    _delete_attachments(db, message.id)
 
 
 def compute_status(db: Session, message: models.Message, member_ids: list[str]) -> str:
@@ -63,14 +83,14 @@ def _apply_lazy_expiry(db: Session, message: models.Message) -> None:
     now = datetime.now(timezone.utc)
     if not _is_expired(message, now):
         return
-    message.deleted_at = now
-    message.body = ""
-    message.ciphertext = None
-    _delete_attachments(db, message.id)
+    _tombstone(db, message, now)
     db.commit()
 
 
 def message_out(db: Session, message: models.Message, member_ids: list[str]) -> schemas.MessageOut:
+    """The wire shape of one message, with its status computed for
+    `member_ids`. Note the side effect: an expired message is tombstoned (and
+    committed) here first, so stale content is never served."""
     _apply_lazy_expiry(db, message)
 
     attachments: list[schemas.AttachmentOut] = []
@@ -109,6 +129,7 @@ def message_out(db: Session, message: models.Message, member_ids: list[str]) -> 
 
 
 def edit_message(db: Session, message: models.Message, body: str) -> models.Message:
+    """Permission checks (sender only, text only) are done by the router."""
     message.body = body
     message.ciphertext = mock_encrypt(body)
     message.edited_at = datetime.now(timezone.utc)
@@ -118,10 +139,7 @@ def edit_message(db: Session, message: models.Message, body: str) -> models.Mess
 
 
 def delete_for_everyone(db: Session, message: models.Message) -> models.Message:
-    message.deleted_at = datetime.now(timezone.utc)
-    message.body = ""
-    message.ciphertext = None
-    _delete_attachments(db, message.id)
+    _tombstone(db, message, datetime.now(timezone.utc))
     db.commit()
     db.refresh(message)
     return message
@@ -172,6 +190,11 @@ def create_message(
     reply_to_id: str | None,
     attachment_ids: list[str] | None = None,
 ) -> models.Message:
+    """The single write path for a new text message (WS send and forward).
+    One commit covers: the message (with mock ciphertext and a frozen
+    expires_at), linking the sender's own unused uploads, one empty receipt
+    per other active member, and the conversation's last_message_at.
+    Membership and block checks are the caller's job."""
     message = models.Message(
         id=new_id("m-"),
         client_id=client_id,
@@ -260,6 +283,9 @@ def forward_message(
 
 
 def mark_delivered(db: Session, user_id: str, message_ids: list[str]) -> list[models.Message]:
+    """Fills delivered_at on the caller's existing receipts only (so a
+    non-recipient can't forge one). Returns the messages that changed, for
+    status broadcasts."""
     now = datetime.now(timezone.utc)
     updated: list[models.Message] = []
     for mid in message_ids:
@@ -276,6 +302,10 @@ def mark_delivered(db: Session, user_id: str, message_ids: list[str]) -> list[mo
 def mark_read(
     db: Session, conversation_id: str, user_id: str, up_to_message_id: str
 ) -> list[models.Message]:
+    """Marks everything others sent up to `up_to_message_id` as read by
+    `user_id`: moves their last_read_at (which drives the unread badge) and
+    fills delivered_at/read_at on their receipts, creating any that are
+    missing. Returns the messages whose receipts changed."""
     target = db.get(models.Message, up_to_message_id)
     if not target:
         return []
@@ -335,10 +365,7 @@ def sweep_expired_messages(db: Session) -> list[models.Message]:
         .all()
     )
     for message in expired:
-        message.deleted_at = now
-        message.body = ""
-        message.ciphertext = None
-        _delete_attachments(db, message.id)
+        _tombstone(db, message, now)
     if expired:
         db.commit()
     return list(expired)
